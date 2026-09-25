@@ -1,0 +1,86 @@
+plugins {
+    id("com.android.application")
+    id("org.jetbrains.kotlin.android")
+    id ("kotlin-kapt")
+    id("com.google.dagger.hilt.android")
+}
+
+android {
+    namespace = "com.launcher_control_android"
+    compileSdk = 35
+
+    defaultConfig {
+        applicationId = "gernot.launcherControl"
+        minSdk = 24
+        targetSdk = 35
+        versionCode = 4
+        versionName = "1.1.13"
+
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    buildTypes {
+        debug {
+            buildConfigField("String", "BASE_URL", "\"http://abc.xyz/\"")
+        }
+        release {
+            buildConfigField("String", "BASE_URL", "\"http://abc.xyz/\"")
+
+            isMinifyEnabled = false
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
+    }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
+    }
+    kotlinOptions {
+        jvmTarget = "1.8"
+    }
+
+    buildFeatures {
+        buildConfig = true
+    }
+
+    dataBinding {
+        enable = true
+    }
+}
+
+dependencies {
+
+    implementation("androidx.core:core-ktx:1.13.1")
+    implementation("androidx.appcompat:appcompat:1.6.1")
+    implementation("com.google.android.material:material:1.11.0")
+    implementation("androidx.constraintlayout:constraintlayout:2.1.4")
+
+    //fragments
+    implementation("androidx.fragment:fragment-ktx:1.7.0")
+
+    //di
+    implementation("com.google.dagger:hilt-android:2.48")
+    kapt("com.google.dagger:hilt-android-compiler:2.48")
+
+    //architecture components
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.0-rc01")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.0-rc01")
+
+    //image loading
+    implementation("io.coil-kt:coil:2.4.0")
+
+    //api
+    implementation("com.squareup.okhttp3:logging-interceptor:4.11.0")
+    implementation("com.squareup.retrofit2:retrofit:2.9.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
+
+    testImplementation("junit:junit:4.13.2")
+    androidTestImplementation("androidx.test.ext:junit:1.1.5")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
+}
+
+kapt {
+    correctErrorTypes = true
+}
