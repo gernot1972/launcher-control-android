@@ -6,7 +6,6 @@ import android.bluetooth.BluetoothGattCharacteristic
 import android.os.Build
 import android.view.View
 import android.view.animation.AccelerateDecelerateInterpolator
-import androidx.activity.result.ActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.core.view.isVisible
@@ -439,7 +438,7 @@ class ChannelListAct :
     override fun renderState(apiRenderState: ApiRenderState) {
     }
 
-    private val settingActResultLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result: ActivityResult ->
+    private val settingActResultLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { _ ->
         vm.refreshSelectedUnit()
         binding.invalidateAll()
         runAutoUpdate()
@@ -634,14 +633,6 @@ class ChannelListAct :
                 resetStayArmed()
             }
         }
-    }
-
-    override fun onDeviceConnectionChanged(gatt: BluetoothGatt?, isConnected: Boolean) {
-        super.onDeviceConnectionChanged(gatt, isConnected)
-    }
-
-    override fun onServicesDiscovered(gatt: BluetoothGatt?, isServiceFound: Boolean) {
-        super.onServicesDiscovered(gatt, isServiceFound)
     }
 
     override fun onCharacteristicWrite(
@@ -873,7 +864,7 @@ class ChannelListAct :
                 withContext(Dispatchers.Main) { fireSoundCommand() }
             }
 
-            for (i in 2..prefs.soundCount) {
+            repeat(prefs.soundCount - 1) {
                 delay((prefs.soundDelay * 1000L))
                 withContext(Dispatchers.Main) { fireSoundCommand() }
             }

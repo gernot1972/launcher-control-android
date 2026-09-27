@@ -42,6 +42,7 @@ import java.io.Closeable;
  *
  * @author Donato Rimenti
  */
+@SuppressLint("MissingPermission")
 public class BluetoothController implements Closeable {
 
     /**
@@ -158,7 +159,7 @@ public class BluetoothController implements Closeable {
         Log.d(TAG, "Bounding outcome : " + outcome);
 
         // If the outcome is true, we are bounding with this device.
-        if (outcome == true) {
+        if (outcome) {
             this.boundingDevice = device;
         }
         return outcome;
@@ -240,7 +241,7 @@ public class BluetoothController implements Closeable {
                 case BluetoothAdapter.STATE_OFF:
                     // Bluetooth is OFF.
                     Log.d(TAG, "Error while turning Bluetooth on.");
-                    Toast.makeText(context, "Error while turning Bluetooth on.", Toast.LENGTH_SHORT);
+                    Toast.makeText(context, "Error while turning Bluetooth on.", Toast.LENGTH_SHORT).show();
                     // Resets the flag since this discovery has been performed.
                     bluetoothDiscoveryScheduled = false;
                     break;

@@ -31,6 +31,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.time.Duration.Companion.milliseconds
 
 
 @AndroidEntryPoint
@@ -131,13 +132,13 @@ class UnitDetailAct :
     }
 
     private fun startBlinkAnimation() {
-        if (binding.tvChannel.isVisible && animatorSet != null && !animatorSet!!.isStarted) {
+        if (binding.tvChannel.isVisible && (animatorSet != null) && !(animatorSet!!.isStarted)) {
             animatorSet!!.start()
         }
     }
 
     private fun stopBlinkAnimation() {
-        if (animatorSet != null && animatorSet!!.isStarted) {
+        if (animatorSet?.isStarted == true) {
             animatorSet!!.cancel()
         }
     }
@@ -197,9 +198,9 @@ class UnitDetailAct :
 
             R.id.iv_voltage -> {
                 lifecycleScope.launch {
-                    setVoltageVisibility(false)
-                    delay(2000)
-                    setVoltageVisibility(true)
+                    setVoltageVisibility(iconVisible = false)
+                    delay(2000.milliseconds)
+                    setVoltageVisibility(iconVisible = true)
                 }
             }
 
@@ -221,31 +222,6 @@ class UnitDetailAct :
         return vm.selectedUnitModel.value?.unitNumber == unitNumber
     }
 
-    override fun onDeviceConnectionChanged(gatt: BluetoothGatt?, isConnected: Boolean) {
-        super.onDeviceConnectionChanged(gatt, isConnected)
-    }
-
-    override fun onServicesDiscovered(gatt: BluetoothGatt?, isServiceFound: Boolean) {
-        super.onServicesDiscovered(gatt, isServiceFound)
-    }
-
-    override fun onCharacteristicWrite(
-        gatt: BluetoothGatt?,
-        characteristic: BluetoothGattCharacteristic?,
-        isSuccess: Boolean
-    ) {
-        super.onCharacteristicWrite(gatt, characteristic, isSuccess)
-    }
-
-    override fun onCharacteristicRead(
-        gatt: BluetoothGatt?,
-        characteristic: BluetoothGattCharacteristic?,
-        value: ByteArray,
-        isSuccess: Boolean
-    ) {
-        super.onCharacteristicRead(gatt, characteristic, value, isSuccess)
-    }
-
     override fun onCharacteristicChanged(
         gatt: BluetoothGatt?,
         characteristic: BluetoothGattCharacteristic?,
@@ -253,15 +229,15 @@ class UnitDetailAct :
     ) {
         super.onCharacteristicChanged(gatt, characteristic, value)
         runOnUiThread {
-            val response = characteristic?.value?.decodeToString()?.lowercase()
+            val response = value.decodeToString().lowercase()
             val command = bluetoothService?.waitingForRes
             val unit = getWaitingForResUnit() ?: return@runOnUiThread
-            if (response?.startsWith("U", ignoreCase = true) == true) {
+            if (response.startsWith("u", ignoreCase = true)) {
                 vm.fetchedUnitModel = FetchedChannelModel(response)
                 selectNextChannel()
                 showUnitDataFetchedUI()
-            } else if (response?.startsWith("V", ignoreCase = true) == true) {
-                vm.fetchedUnitVoltage = response.replace("V", "", ignoreCase = true)
+            } else if (response.startsWith("v", ignoreCase = true)) {
+                vm.fetchedUnitVoltage = response.replace("v", "", ignoreCase = true)
                 setVoltage()
                 setVoltageVisibility()
             } else if (vm.selectedUnitModel.value?.isSoundCommand(bluetoothService?.waitingForRes) == true) {
@@ -270,11 +246,10 @@ class UnitDetailAct :
                 if (response == AppConstants.CommandResponse.NO_RESPONSE || response == AppConstants.CommandResponse.NO_REPLY) {
                     showDialog(
                         title = getString(Strings.no_response),
-                        message = String.format(getString(Strings.no_response_msg), unit),
-                        onPositiveClick = {
-                            reloadUnitData()
-                        }
-                    )
+                        message = String.format(getString(Strings.no_response_msg), unit)
+                    ) {
+                        reloadUnitData()
+                    }
                 } else if (AppConstants.CommandResponse.isSuccess(response)) {
                     if (vm.selectedUnitModel.value?.isReloadCommand(command) == true) {
                         vm.fetchedUnitModel?.doReload()
@@ -363,7 +338,7 @@ class UnitDetailAct :
                     showSecondaryProgress.set(true)
                     fireSoundCommand()
                 }
-                for (i in 2..prefs.soundCount) {
+                repeat(prefs.soundCount - 1) {
                     delay((prefs.soundDelay * 1000L))
                     withContext(Dispatchers.Main) {
                         fireSoundCommand()
@@ -379,7 +354,7 @@ class UnitDetailAct :
     }
 
     private fun setVoltage() {
-        binding.tvVoltage.text = "${vm.fetchedUnitVoltage}V"
+        binding.tvVoltage.text = getString(R.string.device_voltage, "${vm.fetchedUnitVoltage}V")
         vm.fetchedUnitVoltage?.toDoubleOrNull()?.let {
             binding.ivVoltage.setImageResource(getVoltageImageResId(it) )
         }

@@ -3,7 +3,6 @@ package com.launcher_control_android.main.ui.connection_config.view
 import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCharacteristic
 import android.view.View
-import androidx.activity.result.ActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.core.view.isVisible
@@ -15,7 +14,6 @@ import com.launcher_control_android.Strings
 import com.launcher_control_android.databinding.ActConnectionConfigBinding
 import com.launcher_control_android.helper.bluetooth.communication.BluetoothCommunicationAct
 import com.launcher_control_android.helper.util.getVoltageImageResId
-import com.launcher_control_android.helper.util.logE
 import com.launcher_control_android.helper.util.showAlertDialog
 import com.launcher_control_android.helper.util.startActivityForResult
 import com.launcher_control_android.main.common.ApiRenderState
@@ -24,6 +22,7 @@ import com.launcher_control_android.main.ui.connection_config.model.ConnectionCo
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
 
 @AndroidEntryPoint
 class ConnectionConfigAct :
@@ -68,7 +67,7 @@ class ConnectionConfigAct :
         }
     }
 
-    private val selectDeviceResultLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result: ActivityResult ->
+    private val selectDeviceResultLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { _ ->
         fetchData()
     }
 
@@ -136,31 +135,6 @@ class ConnectionConfigAct :
         binding.groupSelectedGateway.isSelected = true
     }
 
-    override fun onDeviceConnectionChanged(gatt: BluetoothGatt?, isConnected: Boolean) {
-        super.onDeviceConnectionChanged(gatt, isConnected)
-    }
-
-    override fun onServicesDiscovered(gatt: BluetoothGatt?, isServiceFound: Boolean) {
-        super.onServicesDiscovered(gatt, isServiceFound)
-    }
-
-    override fun onCharacteristicWrite(
-        gatt: BluetoothGatt?,
-        characteristic: BluetoothGattCharacteristic?,
-        isSuccess: Boolean
-    ) {
-        super.onCharacteristicWrite(gatt, characteristic, isSuccess)
-    }
-
-    override fun onCharacteristicRead(
-        gatt: BluetoothGatt?,
-        characteristic: BluetoothGattCharacteristic?,
-        value: ByteArray,
-        isSuccess: Boolean
-    ) {
-        super.onCharacteristicRead(gatt, characteristic, value, isSuccess)
-    }
-
     override fun onCharacteristicChanged(
         gatt: BluetoothGatt?,
         characteristic: BluetoothGattCharacteristic?,
@@ -169,13 +143,12 @@ class ConnectionConfigAct :
         super.onCharacteristicChanged(gatt, characteristic, value)
         runOnUiThread {
             hideProgress()
-            val response = characteristic?.value?.decodeToString()?.lowercase()
-            val command = bluetoothService?.waitingForRes
+            val response = value.decodeToString().lowercase()
             val unit = getWaitingForResUnit() ?: return@runOnUiThread
-            val responseStartWithUorV = response?.startsWith("V", ignoreCase = true) == true || response?.startsWith("U", ignoreCase = true) == true
+            val responseStartWithUorV = response.startsWith("v", ignoreCase = true) || response.startsWith("u", ignoreCase = true)
             if (bluetoothService?.waitingForRes == "1E" && responseStartWithUorV) {
-                if (response?.startsWith("V", ignoreCase = true) == true) {
-                    val fetchedUnitVoltage = response.replace("V", "", ignoreCase = true)
+                if (response.startsWith("v", ignoreCase = true)) {
+                    val fetchedUnitVoltage = response.replace("v", "", ignoreCase = true)
                     setVoltage(fetchedUnitVoltage)
                 }
             } else if (!responseStartWithUorV && (bluetoothService?.waitingForRes == "1F" || bluetoothService?.waitingForRes == "2F" || bluetoothService?.waitingForRes == "3F" || bluetoothService?.waitingForRes == "4F")) {
@@ -210,67 +183,67 @@ class ConnectionConfigAct :
         binding.btnDemo.setOnClickListener {
             showProgress()
             lifecycleScope.launch {
-                delay(1000)
+                delay(1000.milliseconds)
                 showToast(String.format(getString(Strings.channel_fired_successfully), 1))
                 hideProgress()
 
-                delay(500)
+                delay(500.milliseconds)
 
                 showProgress()
-                delay(1000)
+                delay(1000.milliseconds)
                 showToast(String.format(getString(Strings.channel_fired_successfully), 2))
                 hideProgress()
 
-                delay(500)
+                delay(500.milliseconds)
 
                 showProgress()
-                delay(1000)
+                delay(1000.milliseconds)
                 showToast(String.format(getString(Strings.signal_sent_to_unit), 1))
                 hideProgress()
 
-                delay(500)
+                delay(500.milliseconds)
 
                 showProgress()
-                delay(1000)
+                delay(1000.milliseconds)
                 showToast(String.format(getString(Strings.channel_fired_successfully), 3))
                 hideProgress()
 
-                delay(500)
+                delay(500.milliseconds)
 
                 showProgress()
-                delay(1000)
+                delay(1000.milliseconds)
                 showToast(String.format(getString(Strings.signal_sent_to_unit), 1))
                 hideProgress()
 
-                delay(500)
+                delay(500.milliseconds)
 
                 showProgress()
-                delay(1000)
+                delay(1000.milliseconds)
                 showToast(String.format(getString(Strings.signal_sent_to_unit), 1))
                 hideProgress()
 
-                delay(500)
+                delay(500.milliseconds)
 
                 showProgress()
-                delay(1000)
+                delay(1000.milliseconds)
                 showToast(String.format(getString(Strings.channel_fired_successfully), 4))
                 hideProgress()
 
-                delay(500)
+                delay(500.milliseconds)
 
                 showProgress()
-                delay(1000)
+                delay(1000.milliseconds)
                 showToast(String.format(getString(Strings.channel_fired_successfully), 5))
                 hideProgress()
 
-                delay(500)
+                delay(500.milliseconds)
 
                 showProgress()
-                delay(1000)
+                delay(1000.milliseconds)
                 showToast(String.format(getString(Strings.signal_sent_to_unit), 1))
                 hideProgress()
 
-                delay(1000)
+                delay(1000.milliseconds)
                 showToast("Demo completed")
             }
         }
