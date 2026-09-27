@@ -39,7 +39,7 @@
             app:showSelectDevice="@{!vm.uiState.isGatewayConnected()}"
             app:showNetworkSignal="@{vm.uiState.isGatewayConnected() &amp;&amp; !vm.uiState.hasUnitSelected()}"
             app:signalStrength="@{vm.gatewaySignalStrength}"
-            app:title="@{@string/launcher_control}" />
+            app:title="@{vm.toolbarTitle}" />
 
         <!-- GEÄNDERT: Horizontaler 14-Segment Einhell-Akkubalken direkt unter der Toolbar (1:1 wie iOS) -->
         <LinearLayout
@@ -188,6 +188,20 @@
             app:srcCompat="@drawable/battery50"
             tools:visibility="visible" />
 
+        <!-- NEU: Animierter Glow mit exakter Frisbee-Bildkontur (iOS Metal-Style) -->
+        <!-- NEU: Animierter Glow mit exakter Frisbee-Bildkontur (iOS Metal-Style) -->
+        <androidx.appcompat.widget.AppCompatImageView
+            android:id="@+id/iv_rainbow_glow"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:scaleX="1.17"
+            android:scaleY="1.17"
+            android:visibility="gone"
+            app:layout_constraintBottom_toBottomOf="@id/iv_launcher"
+            app:layout_constraintEnd_toEndOf="@id/iv_launcher"
+            app:layout_constraintStart_toStartOf="@id/iv_launcher"
+            app:layout_constraintTop_toTopOf="@id/iv_launcher" />
+
         <androidx.appcompat.widget.AppCompatImageView
             android:id="@+id/iv_launcher"
             android:layout_width="match_parent"
@@ -203,6 +217,7 @@
             android:src="@{context.getDrawable(vm.uiState.launcherImageResId())}"
 
             app:layout_constraintDimensionRatio="1:1"
+            app:layout_constraintWidth_max="360dp"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@+id/toolbar"
@@ -227,8 +242,8 @@
             android:layout_height="wrap_content"
             android:gravity="center"
             android:orientation="vertical"
-            android:layout_marginTop="0dp"
-            android:layout_marginStart="10dp"
+            android:layout_marginTop="-20dp"
+            android:layout_marginStart="-25dp"
             android:visibility="@{vm.uiState.hasUnitSelected()}"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="@id/iv_launcher">
@@ -241,12 +256,76 @@
 
             <TextView
                 android:id="@+id/tv_left_status_text"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_width="100dp"
+                android:layout_height="100dp"
+                android:layout_marginTop="0dp"
                 android:gravity="center"
-                android:textSize="@dimen/_11sp"
+                android:singleLine="true"
+                android:fontFamily="monospace"
+                android:rotation="-90"
+                tools:text="SERVO OK"
+                android:textColor="@color/colorGreen"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+        </LinearLayout>
+
+        <!-- 🎯 Rechte Flanke: Vertikale 4-Stufen Lautstärkestele (1:1 analog zu iOS) -->
+        <LinearLayout
+            android:id="@+id/ll_right_volume"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:layout_marginEnd="0dp"
+            android:layout_marginTop="-20dp"
+            android:visibility="@{vm.uiState.hasUnitSelected()}"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="@id/iv_launcher">
+
+            <!-- Prozentwert (-90° gedreht) OBERHALB der Balken -->
+            <TextView
+                android:id="@+id/tv_vol_percent"
+                android:layout_width="50dp"
+                android:layout_height="42dp"
+                android:gravity="center"
+                android:singleLine="true"
+                android:fontFamily="monospace"
+                android:rotation="-90"
+                android:text="100%"
+                android:textColor="@color/colorGreen"
+                android:textSize="18sp"
                 android:textStyle="bold"
-                tools:text="SERVO\nOK" />
+                android:layout_marginBottom="5dp" />
+
+            <!-- 4 vertikale Segmente (Stufe 4 oben = 100%, Stufe 1 unten = 15%) -->
+            <LinearLayout
+                android:id="@+id/ll_vol_segments"
+                android:layout_width="wrap_content"
+                android:layout_height="120dp"
+                android:orientation="vertical"
+                android:gravity="center">
+
+                <View android:id="@+id/vol_seg_4" android:layout_width="18dp" android:layout_height="0dp" android:layout_weight="1" android:layout_marginVertical="1dp" android:background="@drawable/shape_rect_rounded_10" />
+                <View android:id="@+id/vol_seg_3" android:layout_width="18dp" android:layout_height="0dp" android:layout_weight="1" android:layout_marginVertical="1dp" android:background="@drawable/shape_rect_rounded_10" />
+                <View android:id="@+id/vol_seg_2" android:layout_width="18dp" android:layout_height="0dp" android:layout_weight="1" android:layout_marginVertical="1dp" android:background="@drawable/shape_rect_rounded_10" />
+                <View android:id="@+id/vol_seg_1" android:layout_width="18dp" android:layout_height="0dp" android:layout_weight="1" android:layout_marginVertical="1dp" android:background="@drawable/shape_rect_rounded_10" />
+            </LinearLayout>
+
+            <!-- VOL-Beschriftung (-90° gedreht) UNTERHALB der Balken -->
+            <TextView
+                android:id="@+id/tv_vol_label"
+                android:layout_width="40dp"
+                android:layout_height="30dp"
+                android:gravity="center"
+                android:singleLine="true"
+                android:fontFamily="monospace"
+                android:rotation="-90"
+                android:text="VOL"
+                android:textColor="@color/colorGreen"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:layout_marginTop="6dp" />
         </LinearLayout>
 
         <TextView
@@ -474,7 +553,7 @@
             android:layout_width="@dimen/_60dp"
             android:layout_height="@dimen/_60dp"
             android:layout_marginStart="@dimen/_10dp"
-            android:layout_marginTop="@dimen/_20dp"
+            android:layout_marginTop="@dimen/_30dp"
             android:layout_marginEnd="@dimen/_10dp"
             android:background="@{vm.uiState.hasUnitSelected() ? context.getDrawable(vm.uiState.getUnitBackground(1)) : @drawable/selector_unit_round_bg}"
             app:isSelected="@{!vm.uiState.hasUnitSelected()}"
@@ -502,7 +581,7 @@
             android:layout_width="@dimen/_60dp"
             android:layout_height="@dimen/_60dp"
             android:layout_marginStart="@dimen/_10dp"
-            android:layout_marginTop="@dimen/_20dp"
+            android:layout_marginTop="@dimen/_30dp"
             android:layout_marginEnd="@dimen/_10dp"
             android:background="@{vm.uiState.hasUnitSelected() ? context.getDrawable(vm.uiState.getUnitBackground(2)) : @drawable/selector_unit_round_bg}"
             app:isSelected="@{!vm.uiState.hasUnitSelected()}"
@@ -529,7 +608,7 @@
             android:layout_width="@dimen/_60dp"
             android:layout_height="@dimen/_60dp"
             android:layout_marginStart="@dimen/_10dp"
-            android:layout_marginTop="@dimen/_20dp"
+            android:layout_marginTop="@dimen/_30dp"
             android:layout_marginEnd="@dimen/_10dp"
             android:background="@{vm.uiState.hasUnitSelected() ? context.getDrawable(vm.uiState.getUnitBackground(3)) : @drawable/selector_unit_round_bg}"
             app:isSelected="@{!vm.uiState.hasUnitSelected()}"
@@ -556,7 +635,7 @@
             android:layout_width="@dimen/_60dp"
             android:layout_height="@dimen/_60dp"
             android:layout_marginStart="@dimen/_10dp"
-            android:layout_marginTop="@dimen/_20dp"
+            android:layout_marginTop="@dimen/_30dp"
             android:layout_marginEnd="@dimen/_10dp"
             android:background="@{vm.uiState.hasUnitSelected() ? context.getDrawable(vm.uiState.getUnitBackground(4)) : @drawable/selector_unit_round_bg}"
             app:isSelected="@{!vm.uiState.hasUnitSelected()}"
@@ -739,14 +818,14 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="@dimen/_16dp"
-            android:layout_marginTop="@dimen/_24dp"
+            android:layout_marginTop="8dp"
             android:layout_marginEnd="@dimen/_16dp"
             android:layout_marginBottom="@dimen/_16dp"
             android:gravity="center"
             android:text="@{@string/add_on_features_on_unit(vm.uiState.selectedUnit.unitNumber)}"
             android:textAllCaps="true"
             android:textColor="@color/white"
-            android:textSize="@dimen/_14sp"
+            android:textSize="18sp"
             android:visibility="@{vm.uiState.selectedUnit.isChannelAdded()}"
             app:layout_constraintBottom_toTopOf="@id/ll_reload"
             app:layout_constraintEnd_toEndOf="parent"
@@ -872,7 +951,8 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/_4dp"
-                android:text="@string/sound"
+                android:text="@{vm.getSoundName(vm.uiState.selectedUnit.selectedSound)}"
+                tools:text="Duck"
                 android:textAllCaps="true"
                 android:textColor="@color/white"
                 android:textSize="@dimen/_20sp" />
@@ -886,13 +966,13 @@
             android:layout_marginStart="@dimen/_16dp"
             android:layout_marginTop="@dimen/_24dp"
             android:layout_marginEnd="@dimen/_16dp"
-            android:layout_marginBottom="@dimen/_16dp"
+            android:layout_marginBottom="@dimen/_12dp"
             android:gravity="center"
             android:text="@{@string/select_sound_for_unit(vm.uiState.selectedUnit.unitNumber)}"
             android:textColor="@color/white"
             tools:text="@string/select_sound_for_unit"
             android:textStyle="bold"
-            android:textSize="@dimen/_18sp"
+            android:textSize="22sp"
             android:visibility="@{vm.uiState.selectedUnit.isOnlySoundInstalled()}"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
@@ -904,8 +984,10 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="@dimen/_16dp"
-            android:layout_marginTop="@dimen/_2dp"
-            android:layout_marginEnd="@dimen/_2dp"
+            android:layout_marginTop="0dp"
+            android:layout_marginEnd="6dp"
+            android:paddingVertical="2dp"
+            android:textSize="22sp"
             android:backgroundTint="@{vm.selectedSoundIndex == 0 ? @color/colorGreen : @color/colorGreenLight}"
             tools:backgroundTint="@color/colorGreen"
             android:textColor="@{vm.selectedSoundIndex == 0 ? @color/white : @color/white60}"
@@ -924,8 +1006,10 @@
             android:id="@+id/btn_sound_pheasant"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="@dimen/_2dp"
-            android:layout_marginEnd="@dimen/_16dp"
+            android:layout_marginStart="0dp"
+            android:layout_marginEnd="6dp"
+            android:paddingVertical="0dp"
+            android:textSize="24sp"
             android:backgroundTint="@{vm.selectedSoundIndex == 1 ? @color/colorGreen : @color/colorGreenLight}"
             tools:backgroundTint="@color/colorGreenLight"
             android:textColor="@{vm.selectedSoundIndex == 1 ? @color/white : @color/white60}"
@@ -945,8 +1029,10 @@
             android:id="@+id/btn_sound_goose"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/_2dp"
-            android:layout_marginEnd="@dimen/_2dp"
+            android:layout_marginTop="0dp"
+            android:layout_marginEnd="6dp"
+            android:paddingVertical="0dp"
+            android:textSize="24sp"
             android:backgroundTint="@{vm.selectedSoundIndex == 2 ? @color/colorGreen : @color/colorGreenLight}"
             tools:backgroundTint="@color/colorGreenLight"
             android:textColor="@{vm.selectedSoundIndex == 2 ? @color/white : @color/white60}"
@@ -954,7 +1040,7 @@
             android:onClick="@{click::onClick}"
             android:visibility="@{vm.uiState.selectedUnit.isOnlySoundInstalled()}"
             tools:visibility="visible"
-            android:text="Goxose"
+            android:text="Goose"
             android:textAllCaps="false"
             app:cornerRadius="@dimen/_8dp"
             app:layout_constraintEnd_toStartOf="@id/btn_sound_brrr"
@@ -965,8 +1051,10 @@
             android:id="@+id/btn_sound_brrr"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="@dimen/_2dp"
-            android:layout_marginEnd="@dimen/_16dp"
+            android:layout_marginStart="0dp"
+            android:layout_marginEnd="6dp"
+            android:paddingVertical="0dp"
+            android:textSize="24sp"
             android:backgroundTint="@{vm.selectedSoundIndex == 3 ? @color/colorGreen : @color/colorGreenLight}"
             tools:backgroundTint="@color/colorGreenLight"
             android:textColor="@{vm.selectedSoundIndex == 3 ? @color/white : @color/white60}"
@@ -986,8 +1074,10 @@
             android:id="@+id/btn_sound_gunshot"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/_2dp"
-            android:layout_marginEnd="@dimen/_2dp"
+            android:layout_marginTop="0dp"
+            android:layout_marginEnd="6dp"
+            android:paddingVertical="0dp"
+            android:textSize="24sp"
             android:backgroundTint="@{vm.selectedSoundIndex == 4 ? @color/colorGreen : @color/colorGreenLight}"
             tools:backgroundTint="@color/colorGreenLight"
             android:textColor="@{vm.selectedSoundIndex == 4 ? @color/white : @color/white60}"
@@ -1008,8 +1098,10 @@
             android:id="@+id/btn_sound_magpie"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="@dimen/_2dp"
-            android:layout_marginEnd="@dimen/_16dp"
+            android:layout_marginStart="0dp"
+            android:layout_marginEnd="6dp"
+            android:paddingVertical="0dp"
+            android:textSize="24sp"
             android:backgroundTint="@{vm.selectedSoundIndex == 5 ? @color/colorGreen : @color/colorGreenLight}"
             tools:backgroundTint="@color/colorGreenLight"
             android:textColor="@{vm.selectedSoundIndex == 5 ? @color/white : @color/white60}"

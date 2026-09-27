@@ -1,5 +1,6 @@
 package com.launcher_control_android.main.ui.channel_list.model
 
+import com.launcher_control_android.R
 import androidx.lifecycle.MutableLiveData
 import com.launcher_control_android.AppConstants.App.listOfPressure
 import com.launcher_control_android.AppConstants.App.listOfSound
@@ -23,6 +24,7 @@ class ChannelListActVM @Inject constructor(private val prefs: PrefUtil) : BaseVM
     var fireChannelNo: Int = -1
     var isAutoUpdateOnPause = false
     var fetchDataFromAutoupdate: Boolean = false
+    var selectedVolumeStep: Int = 4 // 🎯 Standard: 100% (Stufe 4)
 
     fun getPrefUtil() = prefs
 
@@ -47,14 +49,32 @@ class ChannelListActVM @Inject constructor(private val prefs: PrefUtil) : BaseVM
         return noOfAvailableChannel
     }
 
+    fun isAllChannelsAvailable(): Boolean {
+        val total = noOfAddedChannel()
+        return total > 0 && noOfAvailableChannel() == total
+    }
+
     fun noOfAddedChannel(): Int {
         return selectedUnitModel.value?.noOfChannel ?: 0
     }
 
     fun getPressure(): String {
-        return if (selectedUnitModel.value?.isServoVersion != true) {
-            if (fetchedUnitModel?.isBarFail() == true) "Fail" else "${fetchedUnitModel?.getBar()?.toString()} Bar"
-        } else "Update"
+        if (selectedUnitModel.value?.isServoVersion == true || fetchedUnitModel?.getBar() == 13) {
+            return "Update"
+        }
+        if (fetchedUnitModel?.isBarFail() == true) {
+            return "FAIL"
+        }
+        val currentBar = fetchedUnitModel?.getBar() ?: return "Update"
+        val targetBar = fetchedUnitModel?.getPressure() ?: run {
+            val idx = selectedUnitModel.value?.selectedPressure
+            if (idx != null && idx in 0..5) idx * 2 else null
+        }
+        return if (targetBar != null) {
+            "$currentBar bar / Set: $targetBar"
+        } else {
+            "$currentBar bar"
+        }
     }
 
     fun getBatteryPercentText(): String {
@@ -82,6 +102,84 @@ class ChannelListActVM @Inject constructor(private val prefs: PrefUtil) : BaseVM
 
     fun isCompressorActive(): Boolean {
         return fetchedUnitModel?.isCompressorActive() == true
+    }
+
+    fun isServoON(): Boolean {
+        return selectedUnitModel.value?.isServoVersion == true || fetchedUnitModel?.getBar() == 13
+    }
+
+    fun isSoundOnlyMode(): Boolean {
+        return selectedUnitModel.value?.isOnlySoundInstalled() == true
+    }
+
+    fun isCompressorLocked(): Boolean {
+        val bar = fetchedUnitModel?.getBar() ?: return false
+        val targetBar = fetchedUnitModel?.getPressure() ?: ((selectedUnitModel.value?.selectedPressure ?: 0) * 2)
+        if (bar >= 13) return false
+        return if (fetchedUnitModel?.hasCompressorTelemetry() == true) {
+            targetBar > bar && !isCompressorActive()
+        } else {
+            targetBar > bar && bar <= 1
+        }
+    }
+
+    fun isTargetPressureReached(): Boolean {
+        val bar = fetchedUnitModel?.getBar() ?: return false
+        val targetBar = fetchedUnitModel?.getPressure() ?: ((selectedUnitModel.value?.selectedPressure ?: 0) * 2)
+        return bar < 13 && targetBar > 0 && bar >= targetBar
+    }
+
+    fun getLeftStatusIconResId(): Int {
+        return when {
+            isServoON() -> com.launcher_control_android.Drawables.remember_me_24
+            isSoundOnlyMode() -> com.launcher_control_android.Drawables.ic_volume
+            else -> com.launcher_control_android.Drawables.ic_fan
+        }
+    }
+
+    fun getLeftStatusIconColor(): Int {
+        return when {
+            fetchedUnitModel?.isBarFail() == true -> R.color.colorRed
+            isServoON() || isSoundOnlyMode() -> R.color.colorGreen
+            isCompressorLocked() -> R.color.colorRed
+            isTargetPressureReached() -> R.color.colorGreen
+            isCompressorActive() -> R.color.colorOrange
+            else -> R.color.white
+        }
+    }
+
+    fun getLeftStatusText(): String {
+        return when {
+            fetchedUnitModel?.isBarFail() == true -> "FAIL"
+            isServoON() -> "SERVO\nOK"
+            isSoundOnlyMode() -> "SOUND\nOK"
+            isCompressorLocked() -> "LOCK"
+            isCompressorActive() -> "ON"
+            else -> "OFF"
+        }
+    }
+
+    fun getReloadText(): String {
+        val unitNumber = selectedUnitModel.value?.unitNumber ?: 1
+        return if (isCompressorLocked() && isAllChannelsAvailable()) {
+            "Release Unit $unitNumber"
+        } else {
+            "Reload Unit $unitNumber"
+        }
+    }
+
+    fun getHeaderTitleText(servoText: String, autoText: String, manualText: String, autoEnable: Boolean): String {
+        val unit = selectedUnitModel.value ?: return manualText
+        return when {
+            unit.isOnlySoundInstalled() -> "Unit ${unit.unitNumber}\nSOUND CONTROL"
+            unit.isServoVersion -> String.format(servoText, unit.unitNumber)
+            autoEnable -> autoText
+            else -> manualText
+        }
+    }
+
+    fun getSoundButtonText(soundIndex: Int): String {
+        return getSoundName(soundIndex)
     }
 
     fun setSoundForSelectedUnit(index: Int) {

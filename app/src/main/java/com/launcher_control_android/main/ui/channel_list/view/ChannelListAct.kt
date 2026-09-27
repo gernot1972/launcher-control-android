@@ -131,8 +131,8 @@ class ChannelListAct :
         }
 
         // Abstand 2: Oberes Padding bei 2dp halten, unteres Padding auf 12dp erhöhen
-        val paddingTopPx = ((if (is12Channels) 2 else 20) * density).toInt()
-        val paddingBottomPx = ((if (is12Channels) 12 else 20) * density).toInt()
+        val paddingTopPx = ((if (is12Channels) 2 else 10) * density).toInt()
+        val paddingBottomPx = ((if (is12Channels) 12 else 18) * density).toInt()
 
         binding.btnContainer.setPadding(
             binding.btnContainer.paddingLeft,
@@ -144,7 +144,7 @@ class ChannelListAct :
 
     override fun init() {
         binding.showSecondaryProgress = showSecondaryProgress
-        binding.toolbar.textView.text = "" // GEÄNDERT: Verhindert Text-Überlagerung in der Toolbar der Advanced View
+        binding.toolbar.textView.visibility = View.GONE // 🎯 Blendet das Textfeld dauerhaft aus (geschützt vor DataBinding invalidateAll)
         deviceAddress = vm.savedBluetoothDevice.value?.address ?: ""
         checkIntent()
         setListener()
@@ -153,6 +153,135 @@ class ChannelListAct :
         // Dynamische Anpassung von Kachelgrößen (68dp bei 1-8 Kanälen) und Abständen (bei 12 Kanälen)
         vm.selectedUnitModel.observe(this) { unitModel ->
             updateTileSizesAndMargins(unitModel?.noOfChannel ?: 0)
+            updateBatteryAndVolumeUI()
+        }
+        setupVolumeTouchListener()
+    }
+
+    private var fanRotateAnimator: ObjectAnimator? = null
+    private var leftIconFailBlinkAnimator: ObjectAnimator? = null
+
+    private fun startLeftIconFailBlinkAnimation() {
+        if (leftIconFailBlinkAnimator == null || !leftIconFailBlinkAnimator!!.isStarted) {
+            leftIconFailBlinkAnimator = ObjectAnimator.ofFloat(binding.ivLeftStatusIcon, "alpha", 1f, 0.2f, 1f).apply {
+                duration = 300
+                repeatCount = ObjectAnimator.INFINITE
+                repeatMode = ObjectAnimator.RESTART
+                start()
+            }
+        }
+    }
+
+    private fun stopLeftIconFailBlinkAnimation() {
+        leftIconFailBlinkAnimator?.cancel()
+        leftIconFailBlinkAnimator = null
+        binding.ivLeftStatusIcon.alpha = 1.0f
+    }
+
+    private fun updateLeftTelemetryPanel() {
+        val iconResId = vm.getLeftStatusIconResId()
+        val iconColor = getColor(vm.getLeftStatusIconColor())
+        val statusText = vm.getLeftStatusText()
+
+        // 🎯 1:1 Simple View Logik: Dynamisches Icon, Farbtint und Statustext
+        binding.ivLeftStatusIcon.setImageResource(iconResId)
+        binding.ivLeftStatusIcon.imageTintList = android.content.res.ColorStateList.valueOf(iconColor)
+
+        binding.tvLeftStatusText.text = statusText
+        binding.tvLeftStatusText.setTextColor(iconColor)
+
+        // 🎯 1:1 Simple View Logik: Blinken bei System-FAIL
+        if (vm.fetchedUnitModel?.isBarFail() == true) {
+            startLeftIconFailBlinkAnimation()
+        } else {
+            stopLeftIconFailBlinkAnimation()
+        }
+
+        // 🎯 1:1 Simple View Logik: Lüfter-Rotation bei aktiver Kompressor-Fahrt ("ON")
+        if (vm.isCompressorActive() && !vm.isServoON() && !vm.isSoundOnlyMode()) {
+            if (fanRotateAnimator == null || !fanRotateAnimator!!.isStarted) {
+                fanRotateAnimator = ObjectAnimator.ofFloat(binding.ivLeftStatusIcon, "rotation", 0f, 360f).apply {
+                    duration = 1200
+                    repeatCount = ObjectAnimator.INFINITE
+                    interpolator = android.view.animation.LinearInterpolator()
+                    start()
+                }
+            }
+        } else {
+            fanRotateAnimator?.cancel()
+            fanRotateAnimator = null
+            binding.ivLeftStatusIcon.rotation = 0f
+        }
+    }
+
+    // 🎯 Steuerung der 14-Stufen Akku-Stele & 4-Stufen Lautstärkestele in Code
+    // 🎯 Steuerung der 14-Stufen Akku-Stele & 4-Stufen Lautstärkestele in Code
+    private fun updateBatteryAndVolumeUI() {
+        updateLeftTelemetryPanel()
+        updateBottomButtonsUI() // 🎯 1:1 Simple View: Farben, Sperren & Blinken der unteren Buttons steuern
+        val batteryHex = vm.fetchedUnitModel?.getBatteryHex()
+        binding.tvBatPercent.text = vm.getBatteryPercentText()
+
+        val (activeBars, color) = when (batteryHex) {
+            15 -> Pair(14, getColor(R.color.colorGreen))
+            14 -> Pair(0, getColor(R.color.colorRed)) // SENSOR FAIL
+            13 -> Pair(14, getColor(R.color.colorGreen))
+            12 -> Pair(13, getColor(R.color.colorGreen))
+            11 -> Pair(12, getColor(R.color.colorGreen))
+            10 -> Pair(11, getColor(R.color.colorGreen))
+            9  -> Pair(10, getColor(R.color.colorGreen))
+            8  -> Pair(9, getColor(R.color.colorGreen))
+            7  -> Pair(8, getColor(R.color.colorGreen))
+            6  -> Pair(7, getColor(R.color.colorGreen))
+            5  -> Pair(6, getColor(R.color.colorGreen))
+            4  -> Pair(5, getColor(R.color.colorGreen))
+            3  -> Pair(4, getColor(R.color.colorOrange))
+            2  -> Pair(3, getColor(R.color.colorOrange))
+            1  -> Pair(2, getColor(R.color.colorRed))
+            0  -> Pair(1, getColor(R.color.colorRed))
+            else -> Pair(0, getColor(R.color.white)) // Neutral bei alten Geräten (--%)
+        }
+
+        val batSegments = listOf(
+            binding.batSeg0, binding.batSeg1, binding.batSeg2, binding.batSeg3,
+            binding.batSeg4, binding.batSeg5, binding.batSeg6, binding.batSeg7,
+            binding.batSeg8, binding.batSeg9, binding.batSeg10, binding.batSeg11,
+            binding.batSeg12, binding.batSeg13
+        )
+        batSegments.forEachIndexed { index, view ->
+            view.backgroundTintList = android.content.res.ColorStateList.valueOf(
+                if (index < activeBars) color else android.graphics.Color.parseColor("#99999999")
+            )
+        }
+
+        // 🎯 Lautstärke-Stele (Stufen 1..4 farblich hinterlegen)
+        val volBgs = listOf(binding.volBg1, binding.volBg2, binding.volBg3, binding.volBg4)
+        volBgs.forEachIndexed { index, view ->
+            val isSelected = (index + 1) <= vm.selectedVolumeStep
+            view.backgroundTintList = android.content.res.ColorStateList.valueOf(
+                if (isSelected) getColor(R.color.colorGreen) else android.graphics.Color.parseColor("#99999999")
+            )
+        }
+    }
+
+    // 🎯 Touch- & Drag-Geste für die Lautstärkestele (1:1 wie iOS StatusView)
+    @android.annotation.SuppressLint("ClickableViewAccessibility")
+    private fun setupVolumeTouchListener() {
+        binding.llVolSegments.setOnTouchListener { v, event ->
+            if (event.action == android.view.MotionEvent.ACTION_DOWN || event.action == android.view.MotionEvent.ACTION_MOVE) {
+                val height = v.height.toFloat()
+                if (height > 0) {
+                    val normalizedY = 1.0f - Math.max(0.0f, Math.min(1.0f, event.y / height))
+                    val calculatedStep = Math.max(1, Math.min(4, Math.ceil((normalizedY * 4.0f).toDouble()).toInt()))
+                    if (vm.selectedVolumeStep != calculatedStep) {
+                        vm.selectedVolumeStep = calculatedStep
+                        v.triggerHaptic()
+                        updateBatteryAndVolumeUI()
+                    }
+                }
+                resetStayArmed()
+                true
+            } else false
         }
     }
 
@@ -171,6 +300,7 @@ class ChannelListAct :
 
     private val btnSoundLongClick = View.OnLongClickListener {
         it.triggerHaptic()
+        resetStayArmed()
         showDialogFrag(
             SoundOptionsBsd.newInstance(vm.selectedUnitModel.value?.selectedSound ?: 0) {
                 vm.setSoundForSelectedUnit(it)
@@ -182,6 +312,7 @@ class ChannelListAct :
 
     private val btnUpdateLongClick = View.OnLongClickListener {
         it.triggerHaptic()
+        resetStayArmed()
         if (vm.selectedUnitModel.value?.isServoVersion != true) {
             showDialogFrag(
                 PressureOptionsBsd.newInstance(vm.selectedUnitModel.value?.selectedPressure ?: 0) {
@@ -323,6 +454,7 @@ class ChannelListAct :
                     if (!vm.isAutoUpdateOnPause &&
                         vm.selectedUnitModel.value != null &&
                         vm.selectedUnitModel.value?.isServoVersion != true &&
+                        vm.selectedUnitModel.value?.isOnlySoundInstalled() != true && // 🎯 Deaktiviert Autoupdate für Soundunits
                         vm.selectedUnitModel.value?.isChannelAdded() == true &&
                         vm.getNextAvailableChannel() != null) {
                         fetchUnitData(vm.selectedUnitModel.value, true)
@@ -337,6 +469,7 @@ class ChannelListAct :
     override fun onClick(v: View) {
         super.onClick(v)
         v.triggerHaptic()
+        resetStayArmed()
         when (v.id) {
             R.id.btn_back -> {
                 finish()
@@ -427,6 +560,42 @@ class ChannelListAct :
             R.id.btn_sound -> {
                 v.animateWave()
                 fireSoundCommand()
+            }
+
+            R.id.btn_sound_1 -> {
+                binding.ivLeftStatusIcon.animateWave()
+                fireSoundCommand(0)
+                resetStayArmed()
+            }
+
+            R.id.btn_sound_2 -> {
+                binding.ivLeftStatusIcon.animateWave()
+                fireSoundCommand(1)
+                resetStayArmed()
+            }
+
+            R.id.btn_sound_3 -> {
+                binding.ivLeftStatusIcon.animateWave()
+                fireSoundCommand(2)
+                resetStayArmed()
+            }
+
+            R.id.btn_sound_4 -> {
+                binding.ivLeftStatusIcon.animateWave()
+                fireSoundCommand(3)
+                resetStayArmed()
+            }
+
+            R.id.btn_sound_5 -> {
+                binding.ivLeftStatusIcon.animateWave()
+                fireSoundCommand(4)
+                resetStayArmed()
+            }
+
+            R.id.btn_sound_6 -> {
+                binding.ivLeftStatusIcon.animateWave()
+                fireSoundCommand(5)
+                resetStayArmed()
             }
 
             R.id.tv_unit_1 -> {
@@ -578,6 +747,7 @@ class ChannelListAct :
 
     override fun onCharacteristicChangedTimeout() {
         super.onCharacteristicChangedTimeout()
+        updateBatteryAndVolumeUI() // 🎯 Aktualisiert Status-Panel (Icon, Text, Farben) bei Timeout
         when(bluetoothService?.waitingForRes) {
             in listOfTestCommand -> {
 
@@ -591,6 +761,7 @@ class ChannelListAct :
 
 
     private fun showUnitDataFetchedUI() {
+        updateBatteryAndVolumeUI() // 🎯 Aktualisiert Akku- und Lautstärkeanzeige bei Telemetrie-Eingang
         binding.tv1.isSelected = vm.fetchedUnitModel?.isChannelAvailable(1) == true
         binding.tv2.isSelected = vm.fetchedUnitModel?.isChannelAvailable(2) == true
         binding.tv3.isSelected = vm.fetchedUnitModel?.isChannelAvailable(3) == true
@@ -655,7 +826,7 @@ class ChannelListAct :
     }
 
     private fun fireSoundCommand(soundIndex: Int? = null) {
-        val haxCode = vm.selectedUnitModel.value?.soundHexCode(soundIndex) ?: return
+        val haxCode = vm.selectedUnitModel.value?.soundHexCode(soundIndex, vm.selectedVolumeStep) ?: return
         sendCommand(haxCode)
     }
 
@@ -764,6 +935,7 @@ class ChannelListAct :
     }
 
     private fun hideUnitDataFetchedUI() {
+        updateBatteryAndVolumeUI() // 🎯 Aktualisiert das Status-Panel auch beim Zurücksetzen der Daten
         binding.tv1.isSelected = false
         binding.tv2.isSelected = false
         binding.tv3.isSelected = false
@@ -793,6 +965,59 @@ class ChannelListAct :
         reloadBtnBlinkAnimator?.cancel()
         binding.btnReloadContainer.alpha = 1.0f
         binding.btnReloadLarge.alpha = 1.0f
+    }
+
+    private var failBlinkAnimator: ObjectAnimator? = null
+
+    private fun startFailBlinkAnimation() {
+        val btnView = if (binding.llUpdate.isVisible) binding.btnUpdateContainer else binding.btnUpdateLarge
+        if (failBlinkAnimator == null || !failBlinkAnimator!!.isStarted) {
+            cancelUpdateBtnBlinkAnimation()
+            failBlinkAnimator = ObjectAnimator.ofFloat(btnView, "alpha", 1f, 0.2f, 1f).apply {
+                duration = 300
+                repeatCount = ObjectAnimator.INFINITE
+                repeatMode = ObjectAnimator.RESTART
+                start()
+            }
+        }
+    }
+
+    private fun stopFailBlinkAnimation() {
+        failBlinkAnimator?.cancel()
+        failBlinkAnimator = null
+        binding.btnUpdateContainer.alpha = 1.0f
+        binding.btnUpdateLarge.alpha = 1.0f
+    }
+
+    private fun updateBottomButtonsUI() {
+        val fetchedModel = vm.fetchedUnitModel
+
+        // 🎯 1:1 Simple View RELOAD-Logik: Rot bei LOCK, sonst SkyBlue
+        val isLocked = vm.isCompressorLocked()
+        val reloadColor = if (isLocked) getColor(R.color.colorRed) else getColor(R.color.colorSkyBlue)
+        binding.btnReloadContainer.backgroundTintList = android.content.res.ColorStateList.valueOf(reloadColor)
+        binding.btnReloadLarge.backgroundTintList = android.content.res.ColorStateList.valueOf(reloadColor)
+
+        // RELOAD-Blinken: bei LOCK ODER wenn alle Kanäle leer/verschossen sind
+        val hasAvailableChannels = vm.getNextAvailableChannel() != null
+        if (isLocked || (fetchedModel != null && !hasAvailableChannels)) {
+            startReloadBtnAnimation()
+        } else {
+            cancelReloadBtnBlinkAnimator()
+        }
+
+        // 🎯 1:1 Simple View UPDATE-Logik: Rot + Schnelles Warnblinken (300ms) bei FAIL, sonst Orange
+        val isFail = fetchedModel?.isBarFail() == true
+        val updateColor = if (isFail) getColor(R.color.colorRed) else getColor(R.color.colorOrange)
+        binding.btnUpdateContainer.backgroundTintList = android.content.res.ColorStateList.valueOf(updateColor)
+        binding.btnUpdateLarge.backgroundTintList = android.content.res.ColorStateList.valueOf(updateColor)
+
+        if (isFail) {
+            startFailBlinkAnimation()
+        } else {
+            stopFailBlinkAnimation()
+        }
+        binding.invalidateAll() // 🎯 Aktualisiert die Text-Anbindung des Reload-Buttons sofort
     }
 
     private fun startUpdateBtnBlinkAnimation() {

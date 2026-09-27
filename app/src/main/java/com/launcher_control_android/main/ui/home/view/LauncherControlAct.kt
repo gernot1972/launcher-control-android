@@ -74,6 +74,7 @@ class LauncherControlAct :
         setupBlinkAnimation()
         connectGateway()
         setupLauncherTouchArea() // GEÄNDERT: Klickbereich-Einschränkung anheften
+        setupVolumeTouchListener() // 🎯 Touch-Geste für die vertikale Lautstärkestele
 
         // GEÄNDERT: Zurück-Taste/Geste abfangen: Bei gewählter Unit erst zur Hauptseite zurückkehren
         onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
@@ -112,8 +113,9 @@ class LauncherControlAct :
         binding.btnSound.setOnLongClickListener {
             it.triggerHaptic()
             showDialogFrag(
-                SoundOptionsBsd.newInstance(vm.uiState.value?.selectedUnit?.selectedSound ?: 0) {
-                    vm.setSoundForSelectedUnit(it)
+                SoundOptionsBsd.newInstance(vm.uiState.value?.selectedUnit?.selectedSound ?: 0) { soundIdx ->
+                    vm.setSoundForSelectedUnit(soundIdx)
+                    binding.invalidateAll() // 🎯 Zeichnet die Layout-Texte sofort neu
                 },
             )
             true
@@ -203,6 +205,70 @@ class LauncherControlAct :
     }
 
     private var fanRotateAnimator: ObjectAnimator? = null
+    private var rainbowAnimator: ValueAnimator? = null
+    private var cachedRainbowBitmap: android.graphics.Bitmap? = null
+    private var cachedRainbowCanvas: android.graphics.Canvas? = null
+
+    private fun updateRainbowGlowAnimation(shouldAnimate: Boolean) {
+        if (shouldAnimate) {
+            if (rainbowAnimator == null || !rainbowAnimator!!.isStarted) {
+                val drawable = binding.ivLauncher.drawable ?: return
+                binding.ivRainbowGlow.visibility = View.VISIBLE
+
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                    binding.ivRainbowGlow.setRenderEffect(
+                        android.graphics.RenderEffect.createBlurEffect(25f, 25f, android.graphics.Shader.TileMode.CLAMP)
+                    )
+                }
+
+                val colors = intArrayOf(
+                    Color.RED, Color.YELLOW, Color.GREEN,
+                    Color.CYAN, Color.BLUE, Color.MAGENTA, Color.RED
+                )
+
+                rainbowAnimator = ValueAnimator.ofFloat(0f, 360f).apply {
+                    duration = 3000
+                    repeatCount = ValueAnimator.INFINITE
+                    interpolator = android.view.animation.LinearInterpolator()
+                    addUpdateListener { anim ->
+                        val angle = anim.animatedValue as Float
+                        val width = binding.ivRainbowGlow.width
+                        val height = binding.ivRainbowGlow.height
+                        if (width > 0 && height > 0) {
+                            if (cachedRainbowBitmap == null || cachedRainbowBitmap?.width != width || cachedRainbowBitmap?.height != height) {
+                                cachedRainbowBitmap = android.graphics.Bitmap.createBitmap(width, height, android.graphics.Bitmap.Config.ARGB_8888)
+                                cachedRainbowCanvas = android.graphics.Canvas(cachedRainbowBitmap!!)
+                            }
+                            val bitmap = cachedRainbowBitmap!!
+                            val canvas = cachedRainbowCanvas!!
+                            bitmap.eraseColor(Color.TRANSPARENT)
+
+                            drawable.setBounds(0, 0, width, height)
+                            drawable.draw(canvas)
+
+                            val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                                xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.SRC_IN)
+                                val gradient = android.graphics.SweepGradient(width / 2f, height / 2f, colors, null)
+                                val matrix = android.graphics.Matrix()
+                                matrix.postRotate(angle, width / 2f, height / 2f)
+                                gradient.setLocalMatrix(matrix)
+                                shader = gradient
+                            }
+                            canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), paint)
+                            binding.ivRainbowGlow.setImageBitmap(bitmap)
+                        }
+                    }
+                    start()
+                }
+            }
+        } else {
+            rainbowAnimator?.cancel()
+            rainbowAnimator = null
+            cachedRainbowBitmap = null
+            cachedRainbowCanvas = null
+            binding.ivRainbowGlow.visibility = View.GONE
+        }
+    }
 
     private fun updateFanAnimation(isCompressorActive: Boolean) {
         val isSoundOrServo = vm.uiState.value?.isSoundOnlyMode() == true || vm.uiState.value?.isUnitServoON() == true
@@ -266,8 +332,21 @@ class LauncherControlAct :
         if (fetchedModel != null) {
             binding.ivLeftStatusIcon.setImageResource(state.leftStatusIconResId(fetchedModel))
             binding.ivLeftStatusIcon.imageTintList = android.content.res.ColorStateList.valueOf(getColor(state.leftStatusIconColor(fetchedModel)))
-            binding.tvLeftStatusText.text = state.leftStatusText(fetchedModel)
+            val statusText = state.leftStatusText(fetchedModel)
+            binding.tvLeftStatusText.text = statusText
             binding.tvLeftStatusText.setTextColor(getColor(state.leftStatusIconColor(fetchedModel)))
+
+            // 🎯 Ruckelfreie Verschiebung über translationY (ohne DataBinding-Konflikt)
+            val density = resources.displayMetrics.density
+            val translationYDp = when (statusText) {
+                "FAIL", "LOCK" -> -22f
+                "SERVO OK", "SOUND OK" -> 2f
+                "OFF" -> -28f
+                "ON", -> -30f
+                else -> 0f
+            }
+            binding.tvLeftStatusText.translationY = translationYDp * density
+
             updateFanAnimation(state.isCompressorActive(fetchedModel))
 
             if (fetchedModel.isBarFail()) {
@@ -294,23 +373,96 @@ class LauncherControlAct :
         }
     }
 
+    private fun updateVolumeUI() {
+        val unit = vm.uiState.value?.selectedUnit ?: return
+        val step = unit.volumeStep
+
+        binding.tvVolPercent.text = when (step) {
+            4 -> "100%"
+            3 -> "50%"
+            2 -> "30%"
+            1 -> "15%"
+            else -> "100%"
+        }
+
+        val activeColor = android.content.res.ColorStateList.valueOf(getColor(R.color.colorGreen))
+        val inactiveColor = android.content.res.ColorStateList.valueOf(Color.parseColor("#4000FF00")) // Transparentes Grün (25% Alpha)
+
+        binding.volSeg4.backgroundTintList = if (step >= 4) activeColor else inactiveColor
+        binding.volSeg3.backgroundTintList = if (step >= 3) activeColor else inactiveColor
+        binding.volSeg2.backgroundTintList = if (step >= 2) activeColor else inactiveColor
+        binding.volSeg1.backgroundTintList = if (step >= 1) activeColor else inactiveColor
+    }
+
+    private fun setupVolumeTouchListener() {
+        val listener = android.view.View.OnTouchListener { view, event ->
+            if (event.action == android.view.MotionEvent.ACTION_DOWN || event.action == android.view.MotionEvent.ACTION_MOVE) {
+                val unit = vm.uiState.value?.selectedUnit ?: return@OnTouchListener false
+                val height = binding.llVolSegments.height.toFloat()
+                if (height > 0) {
+                    val y = event.y.coerceIn(0f, height)
+                    val normalizedY = 1.0f - (y / height)
+                    val newStep = (Math.ceil(normalizedY * 4.0).toInt()).coerceIn(1, 4)
+                    if (unit.volumeStep != newStep) {
+                        unit.volumeStep = newStep
+                        vm.updateUnitPref(unit, unit.unitNumber)
+                        updateVolumeUI()
+                        view.triggerHaptic()
+                        if (vm.hasStayArmedActive()) {
+                            setStayArmed()
+                        }
+                    }
+                }
+            }
+            true
+        }
+        binding.llVolSegments.setOnTouchListener(listener)
+    }
+
     private fun setObserver() {
         vm.uiState.observe(this@LauncherControlAct) { state ->
             // GEÄNDERT: Dynamische Größen- und Abstandsanpassung für tv_1 bis tv_4
             updateUnitButtonDimensions(state)
             updateFanAnimation(state.isCompressorActive())
             updateLeftTelemetryPanel(state)
+            updateVolumeUI() // 🎯 Aktualisiert die 4-Stufen Lautstärkestele und den %-Text
+
+            // 1. Rainbow-Glow-Animation (iOS-Style)
+            val shouldAnimateGlow = if (state.isSoundOnlyMode()) {
+                state.hasUnitDataFetched() && !state.isDisarmed && state.hasUnitSelected()
+            } else {
+                state.getNextAvailableChannel() != null && !state.isDisarmed && state.hasUnitSelected()
+            }
+            updateRainbowGlowAnimation(shouldAnimateGlow)
+
+            // 2. Disarm-Timer (starr an !isDisarmed gekoppelt)
+            if (state.hasUnitSelected() && !state.isDisarmed && state.getNextAvailableChannel() != null) {
+                if (stayArmedTimerJob == null || stayArmedTimerJob?.isActive != true) {
+                    setStayArmed()
+                }
+            } else if (state.isDisarmed) {
+                stayArmedTimerJob?.cancel()
+                resetTitleUI()
+            }
 
             if (vm.uiState.value?.fetchedUnitModel != null) {
-                if (state.getNextAvailableChannel() != null) {
-                    cancelUpdateBtnBlinkAnimation()
+                val isLocked = state.isCompressorLocked()
+                val hasAvailableChannels = state.getNextAvailableChannel() != null
+
+                // 🎯 RELOAD-Blinken starten, wenn Gerät im LOCK ist ODER alle Kanäle leer sind
+                if (isLocked || !hasAvailableChannels) {
+                    startReloadBtnAnimation()
+                } else {
                     cancelReloadBtnBlinkAnimator()
+                }
+
+                if (hasAvailableChannels) {
+                    cancelUpdateBtnBlinkAnimation()
                     startBlinkAnimation()
                 } else {
                     stayArmedTimerJob?.cancel()
                     cancelUpdateBtnBlinkAnimation()
                     stopBlinkAnimation()
-                    startReloadBtnAnimation()
                 }
 
                 if (state.selectedUnit?.isChannelAdded() == true) {
@@ -337,6 +489,15 @@ class LauncherControlAct :
                 }
             }
             binding.invalidateAll()
+            binding.executePendingBindings()
+
+            // ⏱️ Schützt den Disarm-Timer vor dem asynchronen DataBinding-Rebind bei Statusupdates
+            if (stayArmedTimerJob?.isActive == true && remainingDisarmSeconds > 0) {
+                binding.toolbar.textView.text = "DISARM IN ${remainingDisarmSeconds}s"
+                binding.toolbar.textView.setTextColor(
+                    if (remainingDisarmSeconds <= 5) Color.parseColor("#FFA500") else Color.WHITE
+                )
+            }
         }
         vm.disarmedUnitFetchedData.observe(this@LauncherControlAct) {
             vm.uiState.value?.let { state -> updateLeftTelemetryPanel(state) }
@@ -514,7 +675,7 @@ class LauncherControlAct :
     private fun resetTitleUI() {
         stayArmedTimerJob?.cancel()
         binding.toolbar.textView.setOnClickListener(null) // GEÄNDERT: Klick-Listener auf der normalen Startseite entfernen
-        binding.toolbar.textView.text = getString(R.string.launcher_control)
+        vm.toolbarTitle.value = getString(R.string.launcher_control)
         binding.toolbar.textView.setTextColor(Color.WHITE)
     }
 
@@ -576,7 +737,8 @@ class LauncherControlAct :
     }
 
     private fun fireSoundCommand(soundIndex: Int? = null) {
-        val haxCode = vm.uiState.value?.selectedUnit?.soundHexCode(soundIndex) ?: return
+        val unit = vm.uiState.value?.selectedUnit ?: return
+        val haxCode = unit.soundHexCode(soundIndex, unit.volumeStep) ?: return
         sendCommand(haxCode)
     }
 
@@ -805,17 +967,21 @@ class LauncherControlAct :
     }
 
     private fun startReloadBtnAnimation() {
-        reloadBtnBlinkAnimator?.cancel()
-        reloadBtnBlinkAnimator = ObjectAnimator.ofFloat(binding.btnReloadContainer, "alpha", 1f, 0f, 1f)
-        reloadBtnBlinkAnimator?.duration = 1000
-        reloadBtnBlinkAnimator?.repeatCount = ObjectAnimator.INFINITE
-        reloadBtnBlinkAnimator?.repeatMode = ObjectAnimator.RESTART
-        reloadBtnBlinkAnimator?.interpolator = AccelerateDecelerateInterpolator()
-        reloadBtnBlinkAnimator?.start()
+        if (reloadBtnBlinkAnimator == null || !reloadBtnBlinkAnimator!!.isStarted) {
+            reloadBtnBlinkAnimator?.cancel()
+            reloadBtnBlinkAnimator = ObjectAnimator.ofFloat(binding.btnReloadContainer, "alpha", 1f, 0f, 1f).apply {
+                duration = 1000
+                repeatCount = ValueAnimator.INFINITE
+                repeatMode = ValueAnimator.RESTART
+                interpolator = AccelerateDecelerateInterpolator()
+                start()
+            }
+        }
     }
 
     private fun cancelReloadBtnBlinkAnimator() {
         reloadBtnBlinkAnimator?.cancel()
+        reloadBtnBlinkAnimator = null
         binding.btnReloadContainer.alpha = 1.0f
     }
 
