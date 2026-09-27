@@ -101,13 +101,11 @@ data class UnitModel(
         return command == reloadHexCode()
     }
 
-    fun isSoundCommand(command: String?): Boolean {
-        return command?.getOrNull(0) in 'A'..'D' && command?.getOrNull(1) in '1'..'6'
-    }
-
     fun isPressureCommand(command: String?): Boolean {
         return command?.getOrNull(0) in 'A'..'D' && command?.getOrNull(1) in 'A'..'F'
     }
+
+
 
     fun isVisible(): Boolean {
         return noOfChannel > 0 || isSoundOptionInstalled
@@ -119,5 +117,41 @@ data class UnitModel(
 
     fun isChannelAdded(): Boolean {
         return noOfChannel > 0
+    }
+
+    fun isSoundCommand(command: String?): Boolean {
+        return com.launcher_control_android.data.model.response.isSoundCommand(command)
+    }
+}
+
+fun isSoundCommand(command: String?): Boolean {
+    if (command.isNullOrEmpty()) return false
+    val cmd = command.lowercase()
+    return when {
+        // Unit 1 Sounds (Standard & Lautstärkestufen 15%, 30%, 50%, 100%)
+        cmd in listOf("1", "2", "3", "4", "5", "6") -> true
+        cmd in listOf("51", "52", "53", "54", "55", "56") -> true
+        cmd in listOf("61", "62", "63", "64", "65", "66") -> true
+        cmd.length == 2 && cmd[0] == 'a' && cmd[1] in '1'..'6' -> true
+
+        // Unit 2 Sounds
+        cmd in listOf("a", "b", "c", "d", "e", "f") -> true
+        cmd in listOf("5a", "5b", "5c", "5d", "5e", "5f") -> true
+        cmd in listOf("6a", "6b", "6c", "6d", "6e", "6f") -> true
+        cmd.length == 2 && cmd[0] == 'b' && cmd[1] in '1'..'6' -> true
+
+        // Unit 3 Sounds
+        cmd in listOf("71", "72", "73", "74", "75", "76") -> true
+        cmd in listOf("81", "82", "83", "84", "85", "86") -> true
+        cmd in listOf("91", "92", "93", "94", "95", "96") -> true
+        cmd.length == 2 && cmd[0] == 'c' && cmd[1] in '1'..'6' -> true
+
+        // Unit 4 Sounds
+        cmd in listOf("7a", "7b", "7c", "7d", "7e", "7f") -> true
+        cmd in listOf("8a", "8b", "8c", "8d", "8e", "8f") -> true
+        cmd in listOf("9a", "9b", "9c", "9d", "9e", "9f") -> true
+        cmd.length == 2 && cmd[0] == 'd' && cmd[1] in '1'..'6' -> true
+
+        else -> false
     }
 }

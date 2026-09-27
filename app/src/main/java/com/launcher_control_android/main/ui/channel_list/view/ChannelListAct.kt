@@ -54,12 +54,106 @@ class ChannelListAct :
     private var reloadBtnBlinkAnimator: ObjectAnimator? = null
     private var updateBtnBlinkAnimator: ObjectAnimator? = null
     private var autoupdateJob: Job? = null
+    private var stayArmedTimerJob: Job? = null
+    private var remainingDisarmSeconds = 0
+
+    private fun resetStayArmed() {
+        stayArmedTimerJob?.cancel()
+        remainingDisarmSeconds = prefs.armedInterval
+        stayArmedTimerJob = lifecycleScope.launch(Dispatchers.Main) {
+            while (remainingDisarmSeconds > 0) {
+                binding.tvDisarmTimer.text = "DISARM IN ${remainingDisarmSeconds}s"
+                binding.tvDisarmTimer.setTextColor(
+                    if (remainingDisarmSeconds <= 5) getColor(R.color.colorOrange) else getColor(R.color.white)
+                )
+                delay(1000L)
+                remainingDisarmSeconds--
+            }
+            finish()
+        }
+    }
+
+    private fun updateTileSizesAndMargins(noOfChannels: Int) {
+        val density = resources.displayMetrics.density
+
+        // 1.1 Kachelgröße: 68dp bei 1–8 Kanälen, sonst 60dp
+        val sizeDp = if (noOfChannels in 1..8) 68 else 60
+        val sizePx = (sizeDp * density).toInt()
+
+        // 1.2 Reihenabstand bei 2–6 Kanälen auf 20dp erhöhen (sonst 12dp)
+        val rowMarginDp = if (noOfChannels in 2..6) 20 else 12
+        val rowMarginPx = (rowMarginDp * density).toInt()
+
+        val oddTiles = listOf(
+            binding.tv1, binding.tv3, binding.tv5,
+            binding.tv7, binding.tv9, binding.tv11
+        )
+        val evenTiles = listOf(
+            binding.tv2, binding.tv4, binding.tv6,
+            binding.tv8, binding.tv10, binding.tv12
+        )
+
+        // Kachelgrößen für alle 12 Kacheln setzen (68dp bei 1-8 Kanälen, sonst 60dp)
+        (oddTiles + evenTiles).forEach { tv ->
+            tv.layoutParams = tv.layoutParams.apply {
+                width = sizePx
+                height = sizePx
+            }
+        }
+
+        // Vertikalen Reihenabstand (20dp bei 2-6 Kanälen) NUR auf ungerade Kacheln anwenden
+        oddTiles.forEach { tv ->
+            (tv.layoutParams as? androidx.constraintlayout.widget.ConstraintLayout.LayoutParams)?.let { lp ->
+                lp.bottomMargin = rowMarginPx
+                lp.goneBottomMargin = rowMarginPx
+                tv.layoutParams = lp
+            }
+        }
+
+        // Gerade Kacheln richten sich rein an den ungeraden aus (kein bottomMargin)
+        evenTiles.forEach { tv ->
+            (tv.layoutParams as? androidx.constraintlayout.widget.ConstraintLayout.LayoutParams)?.let { lp ->
+                lp.bottomMargin = 0
+                lp.goneBottomMargin = 0
+                tv.layoutParams = lp
+            }
+        }
+
+        // 2. Spezifische Abstände ausschließlich bei exakt 12 Kanälen verkleinern
+        val is12Channels = (noOfChannels == 12)
+
+        if (is12Channels) {
+            (binding.tv11.layoutParams as? androidx.constraintlayout.widget.ConstraintLayout.LayoutParams)?.let { lp ->
+                lp.bottomMargin = (2 * density).toInt()
+                lp.goneBottomMargin = (2 * density).toInt()
+                binding.tv11.layoutParams = lp
+            }
+        }
+
+        // Abstand 2: Oberes Padding bei 2dp halten, unteres Padding auf 12dp erhöhen
+        val paddingTopPx = ((if (is12Channels) 2 else 20) * density).toInt()
+        val paddingBottomPx = ((if (is12Channels) 12 else 20) * density).toInt()
+
+        binding.btnContainer.setPadding(
+            binding.btnContainer.paddingLeft,
+            paddingTopPx,
+            binding.btnContainer.paddingRight,
+            paddingBottomPx
+        )
+    }
 
     override fun init() {
         binding.showSecondaryProgress = showSecondaryProgress
+        binding.toolbar.textView.text = "" // GEÄNDERT: Verhindert Text-Überlagerung in der Toolbar der Advanced View
         deviceAddress = vm.savedBluetoothDevice.value?.address ?: ""
         checkIntent()
         setListener()
+        resetStayArmed()
+
+        // Dynamische Anpassung von Kachelgrößen (68dp bei 1-8 Kanälen) und Abständen (bei 12 Kanälen)
+        vm.selectedUnitModel.observe(this) { unitModel ->
+            updateTileSizesAndMargins(unitModel?.noOfChannel ?: 0)
+        }
     }
 
     private fun checkIntent() {
@@ -178,10 +272,40 @@ class ChannelListAct :
             fireSoundAndChannel(12)
             true
         }
+
+        // GEÄNDERT: Schickt die spezifisch langgedrückte Unit an die Simple View zurück
+        binding.tvUnit1.setOnLongClickListener {
+            it.triggerHaptic()
+            handleUnitLongClick(prefs.unit1Model)
+            true
+        }
+        binding.tvUnit2.setOnLongClickListener {
+            it.triggerHaptic()
+            handleUnitLongClick(prefs.unit2Model)
+            true
+        }
+        binding.tvUnit3.setOnLongClickListener {
+            it.triggerHaptic()
+            handleUnitLongClick(prefs.unit3Model)
+            true
+        }
+        binding.tvUnit4.setOnLongClickListener {
+            it.triggerHaptic()
+            handleUnitLongClick(prefs.unit4Model)
+            true
+        }
+    }
+
+    // GEÄNDERT: Hilfsmethode zum Zurückgeben des Unit-Modells an LauncherControlAct
+    private fun handleUnitLongClick(unitModel: UnitModel?) {
+        val intent = android.content.Intent().apply {
+            putExtra(AppConstants.Communication.BundleData.INTENT_UNIT_MODEL, unitModel)
+        }
+        setResult(RESULT_OK, intent)
+        finish()
     }
 
     override fun renderState(apiRenderState: ApiRenderState) {
-
     }
 
     private val settingActResultLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result: ActivityResult ->
@@ -214,6 +338,10 @@ class ChannelListAct :
         super.onClick(v)
         v.triggerHaptic()
         when (v.id) {
+            R.id.btn_back -> {
+                finish()
+            }
+
             R.id.btn_setting, R.id.tv_set_up_unit_info -> {
                 startActivityForResult(MainConfigurationAct::class.java, settingActResultLauncher)
             }
@@ -307,6 +435,7 @@ class ChannelListAct :
                     vm.selectedUnitModel.value = unitModel
                     fetchUnitData(unitModel)
                 }
+                resetStayArmed()
             }
 
             R.id.tv_unit_2 -> {
@@ -315,6 +444,7 @@ class ChannelListAct :
                     vm.selectedUnitModel.value = unitModel
                     fetchUnitData(unitModel)
                 }
+                resetStayArmed()
             }
 
             R.id.tv_unit_3 -> {
@@ -323,6 +453,7 @@ class ChannelListAct :
                     vm.selectedUnitModel.value = unitModel
                     fetchUnitData(unitModel)
                 }
+                resetStayArmed()
             }
 
             R.id.tv_unit_4 -> {
@@ -331,6 +462,7 @@ class ChannelListAct :
                     vm.selectedUnitModel.value = unitModel
                     fetchUnitData(unitModel)
                 }
+                resetStayArmed()
             }
         }
     }

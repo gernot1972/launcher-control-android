@@ -65,12 +65,13 @@
                 android:layout_marginEnd="@dimen/_10dp"
                 android:gravity="center"
                 android:orientation="horizontal"
+                android:onClick="@{click::onClick}"
                 android:visibility="@{showBack}">
 
                 <androidx.appcompat.widget.AppCompatImageView
                     android:id="@+id/iv_back"
-                    android:layout_width="@dimen/_20dp"
-                    android:layout_height="@dimen/_24dp"
+                    android:layout_width="@dimen/_26dp"
+                    android:layout_height="@dimen/_26dp"
                     app:srcCompat="@drawable/ic_back"
                     app:tint="@color/colorPrimary" />
 
@@ -87,8 +88,9 @@
 
             <androidx.appcompat.widget.AppCompatImageView
                 android:id="@+id/btn_network"
-                android:layout_width="@dimen/_24dp"
-                android:layout_height="@dimen/_24dp"
+                android:layout_width="@dimen/_28dp"
+                android:layout_height="@dimen/_28dp"
+                android:scaleType="fitCenter"
                 android:layout_marginEnd="@dimen/_10dp"
                 android:onClick="@{click::onClick}"
                 android:visibility="@{showNetworkSignal}"
@@ -97,24 +99,27 @@
 
             <androidx.appcompat.widget.AppCompatImageView
                 android:id="@+id/btn_available_devices"
-                android:layout_width="@dimen/_24dp"
-                android:layout_height="@dimen/_24dp"
+                android:layout_width="@dimen/_36dp"
+                android:layout_height="@dimen/_36dp"
+                android:scaleType="fitCenter"
                 android:onClick="@{click::onClick}"
                 android:visibility="@{showSelectDevice}"
                 app:srcCompat="@drawable/ic_wifi"
-                tools:tint="@color/colorPrimary"
-                android:tint="@{isGatewaySetup ? @color/colorPrimary : @color/white}"/>
+                app:tint="@color/colorPrimary" />
 
         </androidx.appcompat.widget.LinearLayoutCompat>
 
+        <!-- GEÄNDERT: Feste Toolbar-Höhe. textView schaltet dynamisch zwischen "Launcher Control" und "DISARM IN XXs" um -->
         <TextView
             android:id="@+id/textView"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginHorizontal="@dimen/_60dp"
             android:gravity="center"
+            android:onClick="@{click::onClick}"
             android:text="@{title}"
             android:textColor="@color/white"
+            android:textSize="20sp"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
@@ -123,8 +128,9 @@
 
         <androidx.appcompat.widget.AppCompatImageView
             android:id="@+id/btn_setting"
-            android:layout_width="@dimen/_26dp"
-            android:layout_height="@dimen/_26dp"
+            android:layout_width="@dimen/_36dp"
+            android:layout_height="@dimen/_36dp"
+            android:scaleType="fitCenter"
             android:onClick="@{click::onClick}"
             android:visibility="@{showSetting}"
             app:layout_constraintEnd_toEndOf="parent"

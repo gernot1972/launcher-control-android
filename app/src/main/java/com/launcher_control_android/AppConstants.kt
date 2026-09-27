@@ -86,6 +86,11 @@ class AppConstants {
         const val GOT_IT = "got it"
         const val NO_REPLY = "no reply"
         const val NO_RESPONSE = "no response"
+
+        fun isSuccess(response: String?): Boolean {
+            if (response == null) return false
+            return response.equals(GOT_IT, ignoreCase = true) || response.equals("S", ignoreCase = true)
+        }
     }
 
     object Command {

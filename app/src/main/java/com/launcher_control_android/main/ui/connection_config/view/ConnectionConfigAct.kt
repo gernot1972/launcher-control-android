@@ -37,6 +37,9 @@ class ConnectionConfigAct :
         setObserver()
         integrateDemoButton()
         fetchData()
+        binding.toolbar.btnBack.setOnClickListener {
+            finish()
+        }
     }
 
     private fun setObserver() {
@@ -72,6 +75,10 @@ class ConnectionConfigAct :
     override fun onClick(v: View) {
         super.onClick(v)
         when (v.id) {
+            R.id.btn_back -> {
+                finish()
+            }
+
             R.id.btn_select_device -> {
                 startActivityForResult(BluetoothDevicesAct::class.java, selectDeviceResultLauncher)
             }
@@ -172,7 +179,7 @@ class ConnectionConfigAct :
                     setVoltage(fetchedUnitVoltage)
                 }
             } else if (!responseStartWithUorV && (bluetoothService?.waitingForRes == "1F" || bluetoothService?.waitingForRes == "2F" || bluetoothService?.waitingForRes == "3F" || bluetoothService?.waitingForRes == "4F")) {
-                if (response == AppConstants.CommandResponse.GOT_IT) {
+                if (AppConstants.CommandResponse.isSuccess(response)) {
                     showToast(String.format(getString(Strings.unit_test_completed_successfully), unit))
                 } else {
                     showToast(String.format(getString(Strings.unit_test_completed_failed), unit))

@@ -11,6 +11,8 @@ import javax.inject.Inject
 @HiltViewModel
 class MainConfigurationActVM @Inject constructor(private val prefs: PrefUtil) : BaseVM() {
 
+    val appVersion: String = com.launcher_control_android.BuildConfig.VERSION_NAME
+
     var unit1 = prefs.unit1Model
     var unit2 = prefs.unit2Model
     var unit3 = prefs.unit3Model

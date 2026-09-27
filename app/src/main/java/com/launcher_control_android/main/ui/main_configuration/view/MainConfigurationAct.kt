@@ -9,6 +9,8 @@ import com.launcher_control_android.databinding.LayIntervalSettingsBinding
 import com.launcher_control_android.databinding.LayRandomSoundRangeBinding
 import com.launcher_control_android.databinding.LayRandomSoundSwitchBinding
 import com.launcher_control_android.databinding.LayUnitSettingsBinding
+import android.view.View
+import com.launcher_control_android.R
 import com.launcher_control_android.main.base.BaseAct
 import com.launcher_control_android.main.common.ApiRenderState
 import com.launcher_control_android.main.ui.main_configuration.model.MainConfigurationActVM
@@ -24,6 +26,15 @@ class MainConfigurationAct :
 
     override fun init() {
         setListener()
+    }
+
+    override fun onClick(v: View) {
+        super.onClick(v)
+        when (v.id) {
+            R.id.btn_back -> {
+                finish()
+            }
+        }
     }
 
     private fun setListener() {
@@ -89,16 +100,16 @@ class MainConfigurationAct :
     private fun setUnitAction(unitBinding: LayUnitSettingsBinding, unit: UnitModel, which: Int) {
         unitBinding.ivMinus.setOnClickListener {
             val noOfChannel = unit.noOfChannel
-            if (noOfChannel > 0) {
-                unit.noOfChannel = noOfChannel - 1
+            if (noOfChannel >= 2) {
+                unit.noOfChannel = noOfChannel - 2
                 unitBinding.unit = unit
                 vm.updateUnitPref(unit, which)
             }
         }
         unitBinding.ivPlus.setOnClickListener {
             val noOfChannel = unit.noOfChannel
-            if (noOfChannel < 12) {
-                unit.noOfChannel = noOfChannel + 1
+            if (noOfChannel <= 10) {
+                unit.noOfChannel = noOfChannel + 2
                 unitBinding.unit = unit
                 vm.updateUnitPref(unit, which)
             }

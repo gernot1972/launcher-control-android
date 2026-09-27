@@ -149,6 +149,10 @@ class UnitDetailAct :
     override fun onClick(v: View) {
         super.onClick(v)
         when (v.id) {
+            R.id.btn_back -> {
+                finish()
+            }
+
             R.id.tv_1 -> {
                 if (isThisUnitSelected(1)) {
                     finishAct()
@@ -271,7 +275,7 @@ class UnitDetailAct :
                             reloadUnitData()
                         }
                     )
-                } else if (response == AppConstants.CommandResponse.GOT_IT) {
+                } else if (AppConstants.CommandResponse.isSuccess(response)) {
                     if (vm.selectedUnitModel.value?.isReloadCommand(command) == true) {
                         vm.fetchedUnitModel?.doReload()
                         selectNextChannel()

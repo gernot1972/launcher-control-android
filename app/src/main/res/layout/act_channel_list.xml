@@ -43,6 +43,7 @@
             android:textColor="@{vm.autoupdatePressureEnable &amp;&amp; !vm.selectedUnitModel.isServoVersion ? @color/colorGreen : @color/white}"
             android:text="@{vm.selectedUnitModel.isServoVersion ? @string/unit_x_servo_control(vm.selectedUnitModel.unitNumber) : (vm.autoupdatePressureEnable ? @string/update_pressure_auto : @string/update_pressure_manual)}"
             tools:text="@string/update_pressure_manual"
+            android:textSize="20sp"
             android:paddingVertical="@dimen/_2dp"
             android:onClick="@{click::onClick}"
             app:layout_constraintTop_toTopOf="@id/toolbar"
@@ -74,13 +75,40 @@
                     app:layout_constraintStart_toStartOf="parent"
                     app:srcCompat="@drawable/ic_app_window_bg" />
 
+                <!-- Vertikale Guideline exakt in der Bildschirmmitte (50%) -->
+                <androidx.constraintlayout.widget.Guideline
+                    android:id="@+id/center_guideline"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    app:layout_constraintGuide_percent="0.5" />
+
+                <!-- Mittelachse für den gedrehten Countdown (Zentriert auf der Guideline) -->
+                <TextView
+                    android:id="@+id/tv_disarm_timer"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:singleLine="true"
+                    android:gravity="center"
+                    android:rotation="-90"
+                    android:text="DISARM IN 15s"
+                    android:textColor="@color/white"
+                    android:textSize="22sp"
+                    android:textStyle="bold"
+                    android:fontFamily="monospace"
+                    app:layout_constraintStart_toStartOf="@id/center_guideline"
+                    app:layout_constraintEnd_toEndOf="@id/center_guideline"
+                    app:layout_constraintTop_toTopOf="@id/tv_1"
+                    app:layout_constraintBottom_toBottomOf="@id/tv_11" />
+
+                <!-- Kachel 1 -->
                 <TextView
                     android:id="@+id/tv_1"
                     android:layout_width="@dimen/_60dp"
                     android:layout_height="@dimen/_60dp"
-                    android:layout_marginStart="@dimen/_20dp"
-                    android:layout_marginTop="@dimen/_10dp"
-                    android:layout_marginBottom="@dimen/_20dp"
+                    android:layout_marginEnd="20dp"
+                    android:layout_marginTop="10dp"
+                    android:layout_marginBottom="12dp"
                     app:layout_goneMarginBottom="0dp"
                     android:background="@drawable/shape_rect_rounded_10"
                     android:backgroundTint="@color/selector_channel_availability_color"
@@ -92,18 +120,19 @@
                     android:textSize="@dimen/_36sp"
                     android:textStyle="bold"
                     android:visibility="@{vm.selectedUnitModel.noOfChannel > 0}"
-                    app:layout_constraintVertical_bias="1.0"
-                    app:layout_constraintEnd_toStartOf="@id/tv_2"
-                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintVertical_chainStyle="packed"
+                    app:layout_constraintVertical_bias="0.5"
+                    app:layout_constraintEnd_toStartOf="@id/center_guideline"
                     app:layout_constraintTop_toTopOf="parent"
                     app:layout_constraintBottom_toTopOf="@id/tv_3"
                     tools:textColor="@color/black" />
 
+                <!-- Kachel 2 -->
                 <TextView
                     android:id="@+id/tv_2"
                     android:layout_width="@dimen/_60dp"
                     android:layout_height="@dimen/_60dp"
-                    android:layout_marginEnd="@dimen/_20dp"
+                    android:layout_marginStart="20dp"
                     android:background="@drawable/shape_rect_rounded_10"
                     android:backgroundTint="@color/selector_channel_availability_color"
                     android:gravity="center"
@@ -114,17 +143,18 @@
                     android:textSize="@dimen/_36sp"
                     android:textStyle="bold"
                     android:visibility="@{vm.selectedUnitModel.noOfChannel > 1}"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintStart_toEndOf="@id/tv_1"
+                    app:layout_constraintStart_toEndOf="@id/center_guideline"
                     app:layout_constraintTop_toTopOf="@id/tv_1"
                     app:layout_constraintBottom_toBottomOf="@id/tv_1"
                     tools:textColor="@color/black" />
 
+                <!-- Kachel 3 -->
                 <TextView
                     android:id="@+id/tv_3"
                     android:layout_width="@dimen/_60dp"
                     android:layout_height="@dimen/_60dp"
-                    android:layout_marginBottom="@dimen/_20dp"
+                    android:layout_marginEnd="20dp"
+                    android:layout_marginBottom="12dp"
                     app:layout_goneMarginBottom="0dp"
                     android:background="@drawable/shape_rect_rounded_10"
                     android:backgroundTint="@color/selector_channel_availability_color"
@@ -136,15 +166,17 @@
                     android:textSize="@dimen/_36sp"
                     android:textStyle="bold"
                     android:visibility="@{vm.selectedUnitModel.noOfChannel > 2}"
-                    app:layout_constraintEnd_toEndOf="@id/tv_1"
-                    app:layout_constraintStart_toStartOf="@id/tv_1"
+                    app:layout_constraintEnd_toStartOf="@id/center_guideline"
+                    app:layout_constraintTop_toBottomOf="@id/tv_1"
                     app:layout_constraintBottom_toTopOf="@id/tv_5"
                     tools:textColor="@color/black" />
 
+                <!-- Kachel 4 -->
                 <TextView
                     android:id="@+id/tv_4"
                     android:layout_width="@dimen/_60dp"
                     android:layout_height="@dimen/_60dp"
+                    android:layout_marginStart="20dp"
                     android:background="@drawable/shape_rect_rounded_10"
                     android:backgroundTint="@color/selector_channel_availability_color"
                     android:gravity="center"
@@ -155,17 +187,18 @@
                     android:textSize="@dimen/_36sp"
                     android:textStyle="bold"
                     android:visibility="@{vm.selectedUnitModel.noOfChannel > 3}"
-                    app:layout_constraintEnd_toEndOf="@id/tv_2"
-                    app:layout_constraintStart_toStartOf="@id/tv_2"
+                    app:layout_constraintStart_toEndOf="@id/center_guideline"
                     app:layout_constraintTop_toTopOf="@id/tv_3"
                     app:layout_constraintBottom_toBottomOf="@id/tv_3"
                     tools:textColor="@color/black" />
 
+                <!-- Kachel 5 -->
                 <TextView
                     android:id="@+id/tv_5"
                     android:layout_width="@dimen/_60dp"
                     android:layout_height="@dimen/_60dp"
-                    android:layout_marginBottom="@dimen/_20dp"
+                    android:layout_marginEnd="20dp"
+                    android:layout_marginBottom="12dp"
                     app:layout_goneMarginBottom="0dp"
                     android:background="@drawable/shape_rect_rounded_10"
                     android:backgroundTint="@color/selector_channel_availability_color"
@@ -177,15 +210,17 @@
                     android:textSize="@dimen/_36sp"
                     android:textStyle="bold"
                     android:visibility="@{vm.selectedUnitModel.noOfChannel > 4}"
-                    app:layout_constraintEnd_toEndOf="@id/tv_1"
-                    app:layout_constraintStart_toStartOf="@id/tv_1"
+                    app:layout_constraintEnd_toStartOf="@id/center_guideline"
+                    app:layout_constraintTop_toBottomOf="@id/tv_3"
                     app:layout_constraintBottom_toTopOf="@id/tv_7"
                     tools:textColor="@color/black" />
 
+                <!-- Kachel 6 -->
                 <TextView
                     android:id="@+id/tv_6"
                     android:layout_width="@dimen/_60dp"
                     android:layout_height="@dimen/_60dp"
+                    android:layout_marginStart="20dp"
                     android:background="@drawable/shape_rect_rounded_10"
                     android:backgroundTint="@color/selector_channel_availability_color"
                     android:gravity="center"
@@ -196,17 +231,18 @@
                     android:textSize="@dimen/_36sp"
                     android:textStyle="bold"
                     android:visibility="@{vm.selectedUnitModel.noOfChannel > 5}"
-                    app:layout_constraintEnd_toEndOf="@id/tv_2"
-                    app:layout_constraintStart_toStartOf="@id/tv_2"
+                    app:layout_constraintStart_toEndOf="@id/center_guideline"
                     app:layout_constraintTop_toTopOf="@id/tv_5"
                     app:layout_constraintBottom_toBottomOf="@id/tv_5"
                     tools:textColor="@color/black" />
 
+                <!-- Kachel 7 -->
                 <TextView
                     android:id="@+id/tv_7"
                     android:layout_width="@dimen/_60dp"
                     android:layout_height="@dimen/_60dp"
-                    android:layout_marginBottom="@dimen/_20dp"
+                    android:layout_marginEnd="20dp"
+                    android:layout_marginBottom="12dp"
                     app:layout_goneMarginBottom="0dp"
                     android:background="@drawable/shape_rect_rounded_10"
                     android:backgroundTint="@color/selector_channel_availability_color"
@@ -218,15 +254,17 @@
                     android:textSize="@dimen/_36sp"
                     android:textStyle="bold"
                     android:visibility="@{vm.selectedUnitModel.noOfChannel > 6}"
-                    app:layout_constraintEnd_toEndOf="@id/tv_1"
-                    app:layout_constraintStart_toStartOf="@id/tv_1"
+                    app:layout_constraintEnd_toStartOf="@id/center_guideline"
+                    app:layout_constraintTop_toBottomOf="@id/tv_5"
                     app:layout_constraintBottom_toTopOf="@id/tv_9"
                     tools:textColor="@color/black" />
 
+                <!-- Kachel 8 -->
                 <TextView
                     android:id="@+id/tv_8"
                     android:layout_width="@dimen/_60dp"
                     android:layout_height="@dimen/_60dp"
+                    android:layout_marginStart="20dp"
                     android:background="@drawable/shape_rect_rounded_10"
                     android:backgroundTint="@color/selector_channel_availability_color"
                     android:gravity="center"
@@ -237,17 +275,18 @@
                     android:textSize="@dimen/_36sp"
                     android:textStyle="bold"
                     android:visibility="@{vm.selectedUnitModel.noOfChannel > 7}"
-                    app:layout_constraintEnd_toEndOf="@id/tv_2"
-                    app:layout_constraintStart_toStartOf="@id/tv_2"
+                    app:layout_constraintStart_toEndOf="@id/center_guideline"
                     app:layout_constraintTop_toTopOf="@id/tv_7"
                     app:layout_constraintBottom_toBottomOf="@id/tv_7"
                     tools:textColor="@color/black" />
 
+                <!-- Kachel 9 -->
                 <TextView
                     android:id="@+id/tv_9"
                     android:layout_width="@dimen/_60dp"
                     android:layout_height="@dimen/_60dp"
-                    android:layout_marginBottom="@dimen/_20dp"
+                    android:layout_marginEnd="20dp"
+                    android:layout_marginBottom="12dp"
                     app:layout_goneMarginBottom="0dp"
                     android:background="@drawable/shape_rect_rounded_10"
                     android:backgroundTint="@color/selector_channel_availability_color"
@@ -259,15 +298,17 @@
                     android:textSize="@dimen/_36sp"
                     android:textStyle="bold"
                     android:visibility="@{vm.selectedUnitModel.noOfChannel > 8}"
-                    app:layout_constraintEnd_toEndOf="@id/tv_1"
-                    app:layout_constraintStart_toStartOf="@id/tv_1"
+                    app:layout_constraintEnd_toStartOf="@id/center_guideline"
+                    app:layout_constraintTop_toBottomOf="@id/tv_7"
                     app:layout_constraintBottom_toTopOf="@id/tv_11"
                     tools:textColor="@color/black" />
 
+                <!-- Kachel 10 -->
                 <TextView
                     android:id="@+id/tv_10"
                     android:layout_width="@dimen/_60dp"
                     android:layout_height="@dimen/_60dp"
+                    android:layout_marginStart="20dp"
                     android:background="@drawable/shape_rect_rounded_10"
                     android:backgroundTint="@color/selector_channel_availability_color"
                     android:gravity="center"
@@ -278,16 +319,18 @@
                     android:textSize="@dimen/_36sp"
                     android:textStyle="bold"
                     android:visibility="@{vm.selectedUnitModel.noOfChannel > 9}"
-                    app:layout_constraintEnd_toEndOf="@id/tv_2"
-                    app:layout_constraintStart_toStartOf="@id/tv_2"
+                    app:layout_constraintStart_toEndOf="@id/center_guideline"
                     app:layout_constraintTop_toTopOf="@id/tv_9"
                     app:layout_constraintBottom_toBottomOf="@id/tv_9"
                     tools:textColor="@color/black" />
 
+                <!-- Kachel 11 -->
                 <TextView
                     android:id="@+id/tv_11"
                     android:layout_width="@dimen/_60dp"
                     android:layout_height="@dimen/_60dp"
+                    android:layout_marginEnd="20dp"
+                    app:layout_goneMarginBottom="0dp"
                     android:background="@drawable/shape_rect_rounded_10"
                     android:backgroundTint="@color/selector_channel_availability_color"
                     android:gravity="center"
@@ -298,15 +341,17 @@
                     android:textSize="@dimen/_36sp"
                     android:textStyle="bold"
                     android:visibility="@{vm.selectedUnitModel.noOfChannel > 10}"
-                    app:layout_constraintEnd_toEndOf="@id/tv_1"
-                    app:layout_constraintStart_toStartOf="@id/tv_1"
+                    app:layout_constraintEnd_toStartOf="@id/center_guideline"
+                    app:layout_constraintTop_toBottomOf="@id/tv_9"
                     app:layout_constraintBottom_toTopOf="@id/btn_container"
                     tools:textColor="@color/black" />
 
+                <!-- Kachel 12 -->
                 <TextView
                     android:id="@+id/tv_12"
                     android:layout_width="@dimen/_60dp"
                     android:layout_height="@dimen/_60dp"
+                    android:layout_marginStart="20dp"
                     android:background="@drawable/shape_rect_rounded_10"
                     android:backgroundTint="@color/selector_channel_availability_color"
                     android:gravity="center"
@@ -317,10 +362,9 @@
                     android:textSize="@dimen/_36sp"
                     android:textStyle="bold"
                     android:visibility="@{vm.selectedUnitModel.noOfChannel > 11}"
-                    app:layout_constraintBottom_toBottomOf="@id/tv_11"
-                    app:layout_constraintEnd_toEndOf="@id/tv_2"
-                    app:layout_constraintStart_toStartOf="@id/tv_2"
+                    app:layout_constraintStart_toEndOf="@id/center_guideline"
                     app:layout_constraintTop_toTopOf="@id/tv_11"
+                    app:layout_constraintBottom_toBottomOf="@id/tv_11"
                     tools:textColor="@color/black" />
 
                 <androidx.constraintlayout.widget.ConstraintLayout
@@ -340,7 +384,8 @@
                         android:onClick="@{click::onClick}"
                         android:background="@drawable/shape_rect_rounded_50"
                         android:backgroundTint="@color/colorOrange"
-                        android:padding="@dimen/_12dp"
+                        android:paddingVertical="6dp"
+                        android:paddingHorizontal="@dimen/_12dp"
                         tools:visibility="visible"
                         android:visibility="@{vm.noOfAddedChannel() > 0 &amp;&amp; vm.noOfAddedChannel() &lt;= 8}"
                         android:layout_marginHorizontal="@dimen/_40dp"
@@ -377,7 +422,8 @@
                         android:onClick="@{click::onClick}"
                         android:background="@drawable/shape_rect_rounded_50"
                         android:backgroundTint="@color/colorSkyBlue"
-                        android:padding="@dimen/_12dp"
+                        android:paddingVertical="6dp"
+                        android:paddingHorizontal="@dimen/_12dp"
                         tools:visibility="visible"
                         android:visibility="@{vm.noOfAddedChannel() > 0 &amp;&amp; vm.noOfAddedChannel() &lt;= 8}"
                         android:layout_marginHorizontal="@dimen/_40dp"
@@ -415,7 +461,8 @@
                         android:onClick="@{click::onClick}"
                         android:background="@drawable/shape_rect_rounded_50"
                         android:backgroundTint="@color/colorGreen"
-                        android:padding="@dimen/_12dp"
+                        android:paddingVertical="6dp"
+                        android:paddingHorizontal="@dimen/_12dp"
                         tools:visibility="visible"
                         android:visibility="@{vm.noOfAddedChannel() &lt;= 8 &amp;&amp; vm.selectedUnitModel.soundOptionInstalled}"
                         android:layout_marginHorizontal="@dimen/_40dp"
@@ -446,6 +493,7 @@
 
                     </LinearLayout>
 
+                    <!-- GEÄNDERT: Titel nur bei > 8 und < 12 Kanälen anzeigen (bei 12 Kanälen ausgeblendet) -->
                     <TextView
                         android:id="@+id/tv_add_on_feature"
                         android:layout_width="0dp"
@@ -458,7 +506,7 @@
                         android:textAllCaps="true"
                         android:textColor="@color/white"
                         android:textSize="@dimen/_14sp"
-                        android:visibility="@{vm.noOfAddedChannel() > 8}"
+                        android:visibility="@{vm.noOfAddedChannel() > 8 &amp;&amp; vm.noOfAddedChannel() &lt; 12}"
                         tools:visibility="gone"
                         app:layout_constraintTop_toTopOf="parent"
                         app:layout_constraintEnd_toEndOf="parent"
@@ -501,7 +549,8 @@
                             android:text="@string/reload"
                             android:textAllCaps="true"
                             android:textColor="@color/white"
-                            android:textSize="@dimen/_20sp" />
+                            android:textSize="@dimen/_20sp"
+                            android:visibility="@{vm.noOfAddedChannel() &lt; 12}" />
 
                     </LinearLayout>
 
@@ -542,7 +591,8 @@
                             android:text="@string/update"
                             android:textAllCaps="true"
                             android:textColor="@color/white"
-                            android:textSize="@dimen/_20sp" />
+                            android:textSize="@dimen/_20sp"
+                            android:visibility="@{vm.noOfAddedChannel() &lt; 12}" />
 
                     </LinearLayout>
 
@@ -583,7 +633,8 @@
                             android:text="@string/sound"
                             android:textAllCaps="true"
                             android:textColor="@color/white"
-                            android:textSize="@dimen/_20sp" />
+                            android:textSize="@dimen/_20sp"
+                            android:visibility="@{vm.noOfAddedChannel() &lt; 12}" />
 
                     </LinearLayout>
 

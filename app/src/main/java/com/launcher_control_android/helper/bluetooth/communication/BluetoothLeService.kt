@@ -2,6 +2,7 @@ package com.launcher_control_android.helper.bluetooth.communication
 
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
+import com.launcher_control_android.data.model.response.isSoundCommand
 import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCallback
 import android.bluetooth.BluetoothGattCharacteristic
@@ -49,7 +50,7 @@ class BluetoothLeService private constructor(val context: Context) {
     private var bluetoothAdapter: BluetoothAdapter? = null
     private var bluetoothGatt: BluetoothGatt? = null
     private var connectionState = STATE_DISCONNECTED
-    private val timeoutMillis = 2000L
+    private val timeoutMillis = 1000L
     private val handler = Handler(Looper.getMainLooper())
     private val timeoutRunnable = Runnable {
         bluetoothCommunicationListener?.onCharacteristicChangedTimeout()
@@ -322,7 +323,9 @@ class BluetoothLeService private constructor(val context: Context) {
             it.setValue(command.hexDecodedData())
             val success = bluetoothGatt?.writeCharacteristic(it) ?: false
             "Write status: $command $success".logE()
-            setTimeOutCallBack(success)
+            if (!isSoundCommand(command)) {
+                setTimeOutCallBack(success)
+            }
             if (!success) {
                 scope.launch {
                     delay(100)

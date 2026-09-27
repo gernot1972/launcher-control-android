@@ -120,7 +120,7 @@ constructor(@ApplicationContext context: Context) {
         }
 
     var armedInterval: Int
-        get() = prefs.getInt(ARMED_INTERVAL, 10)
+        get() = prefs.getInt(ARMED_INTERVAL, 30)
         set(data) {
             prefEditor.putInt(ARMED_INTERVAL, data)
             prefEditor.apply()
@@ -134,7 +134,7 @@ constructor(@ApplicationContext context: Context) {
         }
 
     var autoupdatePressureEnable: Boolean
-        get() = prefs.getBoolean(AUTOUPDATE_PRESSURE_ENABLE, false)
+        get() = prefs.getBoolean(AUTOUPDATE_PRESSURE_ENABLE, true)
         set(data) {
             prefEditor.putBoolean(AUTOUPDATE_PRESSURE_ENABLE, data)
             prefEditor.apply()

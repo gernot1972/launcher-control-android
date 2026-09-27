@@ -36,6 +36,7 @@ import com.launcher_control_android.main.common.ApiRenderState
 import com.launcher_control_android.main.common.FetchedChannelModel
 import com.launcher_control_android.main.ui.channel_list.view.ChannelListAct
 import com.launcher_control_android.main.ui.connection_config.view.ConnectionConfigAct
+import com.launcher_control_android.main.ui.home.LauncherControlUIStateModel
 import com.launcher_control_android.main.ui.home.model.LauncherControlVM
 import com.launcher_control_android.main.ui.main_configuration.view.MainConfigurationAct
 import com.launcher_control_android.main.ui.unit_detail.view.SoundOptionsBsd
@@ -72,12 +73,38 @@ class LauncherControlAct :
         setObserver()
         setupBlinkAnimation()
         connectGateway()
+        setupLauncherTouchArea() // GEÄNDERT: Klickbereich-Einschränkung anheften
+
+        // GEÄNDERT: Zurück-Taste/Geste abfangen: Bei gewählter Unit erst zur Hauptseite zurückkehren
+        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (vm.uiState.value?.hasUnitSelected() == true) {
+                    resetSelectUnit()
+                } else {
+                    isEnabled = false
+                    onBackPressedDispatcher.onBackPressed()
+                }
+            }
+        })
 
         /**
          * Set minimum autoupdatePressureDelay to 5 if in previous app version it set as less then 5 because in previous version minimum value is 3
          */
         if (prefs.autoupdatePressureDelay < 5) {
             prefs.autoupdatePressureDelay = 5
+        }
+    }
+
+    private fun setupLauncherTouchArea() {
+        // GEÄNDERT: Klicks im obersten 35dp-Streifen des Frisbee-Buttons ignorieren,
+        // um Überschneidungen mit dem Akku-Icon/Spannungstext vollständig auszuschließen.
+        val topIgnoreThresholdPx = 35 * resources.displayMetrics.density
+        binding.ivLauncher.setOnTouchListener { _, event ->
+            if (event.action == android.view.MotionEvent.ACTION_DOWN && event.y < topIgnoreThresholdPx) {
+                true // Touch im oberen Streifen abfangen & Frisbee-Klick verhindern
+            } else {
+                false // Reguläres Klick-Verhalten im restlichen Bereich zulassen
+            }
         }
     }
 
@@ -108,7 +135,10 @@ class LauncherControlAct :
 
         binding.ivLauncher.setOnLongClickListener {
             it.triggerHaptic()
-            if (vm.uiState.value?.isGatewayConnected() == true && vm.uiState.value?.hasUnitDataFetched() != true && vm.hasStayArmedActive()) {
+            // NEU: Wenn keine Unit gewählt ist, zeigt Longpress die Gateway-Informationen an
+            if (vm.uiState.value?.isGatewayConnected() == true && vm.uiState.value?.selectedUnit == null) {
+                showGatewayInfo()
+            } else if (vm.uiState.value?.isGatewayConnected() == true && vm.uiState.value?.hasUnitDataFetched() != true && vm.hasStayArmedActive()) {
                 bluetoothService?.disconnectBluetoothDevice()
                 setGatewayDisconnected()
             } else {
@@ -146,8 +176,131 @@ class LauncherControlAct :
         }
     }
 
+    private fun updateUnitButtonDimensions(state: LauncherControlUIStateModel) {
+        val isMainScreen = !state.hasUnitSelected()
+        // Zählt, wie viele Units aktuell sichtbar geschaltet sind
+        val visibleCount = (1..4).count { unitNum -> vm.getUnitModel(unitNum)?.isVisible() == true }
+
+        // Bedingung: Hauptseite (keine Unit gewählt) UND genau 4 Units sind sichtbar
+        val isAll4Visible = !state.hasUnitSelected() && visibleCount == 4
+
+        val sizeDp = if (isMainScreen) 70 else 60
+        val marginDp = if (isMainScreen && isAll4Visible) 6 else 10
+        val sizePx = (sizeDp * resources.displayMetrics.density).toInt()
+        val marginPx = (marginDp * resources.displayMetrics.density).toInt()
+
+        listOf(binding.tv1, binding.tv2, binding.tv3, binding.tv4).forEach { tv ->
+            val params = tv.layoutParams as? androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
+            if (params != null) {
+                params.width = sizePx
+                params.height = sizePx
+                params.marginStart = marginPx
+                params.marginEnd = marginPx
+                tv.layoutParams = params
+                tv.requestLayout()
+            }
+        }
+    }
+
+    private var fanRotateAnimator: ObjectAnimator? = null
+
+    private fun updateFanAnimation(isCompressorActive: Boolean) {
+        val isSoundOrServo = vm.uiState.value?.isSoundOnlyMode() == true || vm.uiState.value?.isUnitServoON() == true
+        if (isCompressorActive && !isSoundOrServo) {
+            if (fanRotateAnimator == null || !fanRotateAnimator!!.isStarted) {
+                fanRotateAnimator = ObjectAnimator.ofFloat(binding.ivLeftStatusIcon, "rotation", 0f, 360f).apply {
+                    duration = 1500
+                    repeatCount = ValueAnimator.INFINITE
+                    interpolator = android.view.animation.LinearInterpolator()
+                    start()
+                }
+            }
+        } else {
+            fanRotateAnimator?.cancel()
+            fanRotateAnimator = null
+            binding.ivLeftStatusIcon.rotation = 0f
+        }
+    }
+
+    private var failBlinkAnimator: ObjectAnimator? = null
+
+    private fun startFailBlinkAnimation() {
+        if (failBlinkAnimator == null || !failBlinkAnimator!!.isStarted) {
+            cancelUpdateBtnBlinkAnimation()
+            failBlinkAnimator = ObjectAnimator.ofFloat(binding.btnUpdateContainer, "alpha", 1f, 0.2f, 1f).apply {
+                duration = 300
+                repeatCount = ValueAnimator.INFINITE
+                repeatMode = ValueAnimator.RESTART
+                start()
+            }
+        }
+    }
+
+    private fun stopFailBlinkAnimation() {
+        failBlinkAnimator?.cancel()
+        failBlinkAnimator = null
+        binding.btnUpdateContainer.alpha = 1.0f
+    }
+
+    private var leftIconFailBlinkAnimator: ObjectAnimator? = null
+
+    private fun startLeftIconFailBlinkAnimation() {
+        if (leftIconFailBlinkAnimator == null || !leftIconFailBlinkAnimator!!.isStarted) {
+            leftIconFailBlinkAnimator = ObjectAnimator.ofFloat(binding.ivLeftStatusIcon, "alpha", 1f, 0.2f, 1f).apply {
+                duration = 300
+                repeatCount = ValueAnimator.INFINITE
+                repeatMode = ValueAnimator.RESTART
+                start()
+            }
+        }
+    }
+
+    private fun stopLeftIconFailBlinkAnimation() {
+        leftIconFailBlinkAnimator?.cancel()
+        leftIconFailBlinkAnimator = null
+        binding.ivLeftStatusIcon.alpha = 1.0f
+    }
+
+    private fun updateLeftTelemetryPanel(state: LauncherControlUIStateModel) {
+        val fetchedModel = state.fetchedUnitModel ?: vm.disarmedUnitFetchedData.value
+        if (fetchedModel != null) {
+            binding.ivLeftStatusIcon.setImageResource(state.leftStatusIconResId(fetchedModel))
+            binding.ivLeftStatusIcon.imageTintList = android.content.res.ColorStateList.valueOf(getColor(state.leftStatusIconColor(fetchedModel)))
+            binding.tvLeftStatusText.text = state.leftStatusText(fetchedModel)
+            binding.tvLeftStatusText.setTextColor(getColor(state.leftStatusIconColor(fetchedModel)))
+            updateFanAnimation(state.isCompressorActive(fetchedModel))
+
+            if (fetchedModel.isBarFail()) {
+                startLeftIconFailBlinkAnimation()
+            } else {
+                stopLeftIconFailBlinkAnimation()
+            }
+
+            // 🎯 RELOAD Button: Rot bei LOCK, sonst SkyBlue
+            val isLocked = state.isCompressorLocked(fetchedModel)
+            val reloadColor = if (isLocked) getColor(R.color.colorRed) else getColor(R.color.colorSkyBlue)
+            binding.btnReloadContainer.backgroundTintList = android.content.res.ColorStateList.valueOf(reloadColor)
+
+            // 🎯 UPDATE Button: Rot + Schnelles Blinken bei FAIL (>= 14), sonst Orange
+            val isFail = fetchedModel.isBarFail()
+            val updateColor = if (isFail) getColor(R.color.colorRed) else getColor(R.color.colorOrange)
+            binding.btnUpdateContainer.backgroundTintList = android.content.res.ColorStateList.valueOf(updateColor)
+
+            if (isFail) {
+                startFailBlinkAnimation()
+            } else {
+                stopFailBlinkAnimation()
+            }
+        }
+    }
+
     private fun setObserver() {
         vm.uiState.observe(this@LauncherControlAct) { state ->
+            // GEÄNDERT: Dynamische Größen- und Abstandsanpassung für tv_1 bis tv_4
+            updateUnitButtonDimensions(state)
+            updateFanAnimation(state.isCompressorActive())
+            updateLeftTelemetryPanel(state)
+
             if (vm.uiState.value?.fetchedUnitModel != null) {
                 if (state.getNextAvailableChannel() != null) {
                     cancelUpdateBtnBlinkAnimation()
@@ -165,12 +318,10 @@ class LauncherControlAct :
                     if (prefs.autoupdatePressureEnable) {
                         autoupdateJob = lifecycleScope.launch {
                             delay((prefs.autoupdatePressureDelay * 1000L))
-                            if (vm.hasStayArmedActive() &&
-                                !vm.isAutoUpdateOnPause &&
+                            if (!vm.isAutoUpdateOnPause &&
                                 vm.uiState.value?.hasUnitSelected() == true &&
                                 vm.uiState.value?.selectedUnit?.isServoVersion != true &&
-                                vm.uiState.value?.selectedUnit?.isChannelAdded() == true &&
-                                vm.uiState.value?.getNextAvailableChannel() != null) {
+                                vm.uiState.value?.selectedUnit?.isChannelAdded() == true) {
                                 fetchUnitData(vm.uiState.value?.selectedUnit, true)
                             }
                         }
@@ -187,89 +338,9 @@ class LauncherControlAct :
             }
             binding.invalidateAll()
         }
-        /*vm.fetchedUnitModel.observe(this@LauncherControlAct){
-            if (it != null) {
-                showUnitDataFetchedUI()
-                if (vm.selectedUnitModel.value?.isOnlySoundInstalled() != true) {
-                    autoupdateJob?.cancel()
-                    if (prefs.autoupdatePressureEnable && vm.stayArmedActive) {
-                        autoupdateJob = lifecycleScope.launch {
-                            delay((prefs.autoupdatePressureDelay * 1000L))
-                            fetchUnitData(vm.selectedUnitModel.value, true)
-                        }
-                    }
-                }
-            }
-        }*/
-        /*lifecycleScope.launch {
-            vm.uiState().collect {
-                when (it) {
-                    is LauncherControlUIState.NoGatewayOrUnitSetup -> {
-                        binding.llSetupMessages.isVisible = !it.isGatewaySetup || !it.isUnitSetup
-                        binding.tvSaveGatewayInfo.isVisible = !it.isGatewaySetup
-                        binding.tvSetUpUnitInfo.isVisible = !it.isUnitSetup
-                        binding.toolbar.showSelectDevice = true
-                        binding.toolbar.isGatewaySetup = it.isGatewaySetup
-
-                        binding.tv1.isClickable = false
-                        binding.tv2.isClickable = false
-                        binding.tv3.isClickable = false
-                        binding.tv4.isClickable = false
-
-                        binding.tvNoChannelAvailable.isVisible = false
-                        binding.tvNoUnitSelected.isVisible = false
-                    }
-                    is LauncherControlUIState.GatewayAndUnitSetup -> {
-                        binding.llSetupMessages.isVisible = false
-                        binding.tvSaveGatewayInfo.isVisible = false
-                        binding.tvSetUpUnitInfo.isVisible = false
-                        binding.ivLauncher.isVisible = true
-                        binding.tv1.isVisible = vm.getPrefUtil().unit1Model.isVisible()
-                        binding.tv2.isVisible = vm.getPrefUtil().unit2Model.isVisible()
-                        binding.tv3.isVisible = vm.getPrefUtil().unit3Model.isVisible()
-                        binding.tv4.isVisible = vm.getPrefUtil().unit4Model.isVisible()
-
-                        val isGatewayConnected = it.gatewayConnectionStatus == GatewayConnectionStatus.CONNECTED
-                        val isGatewayConnecting = it.gatewayConnectionStatus == GatewayConnectionStatus.CONNECTING
-                        val isGatewayNotConnected = it.gatewayConnectionStatus == GatewayConnectionStatus.NOT_CONNECTED
-
-                        binding.ivLauncher.alpha = 0.1f
-                        binding.ivLauncher.isClickable = false
-                        setGrayScale(binding.ivLauncher, !isGatewayConnected)
-                        setLauncherButtonImage(false)
-                        binding.tv1.alpha = if (isGatewayConnected) 1.0f else 0.1f
-                        binding.tv2.alpha = if (isGatewayConnected) 1.0f else 0.1f
-                        binding.tv3.alpha = if (isGatewayConnected) 1.0f else 0.1f
-                        binding.tv4.alpha = if (isGatewayConnected) 1.0f else 0.1f
-                        binding.tv1.isClickable = isGatewayConnected
-                        binding.tv2.isClickable = isGatewayConnected
-                        binding.tv3.isClickable = isGatewayConnected
-                        binding.tv4.isClickable = isGatewayConnected
-
-                        binding.tvConnecting.isVisible = isGatewayConnecting
-                        binding.tvGatewayNotConnected.isVisible = isGatewayNotConnected
-                        binding.tvConnectedToGateway.isVisible = isGatewayConnected
-                        binding.tvNoUnitSelected.isVisible = isGatewayConnected
-
-                        binding.toolbar.showSelectDevice = !isGatewayConnected
-                        binding.toolbar.showNetworkSignal = isGatewayConnected
-                        binding.toolbar.signalStrength = prefs.savedBluetoothDevice?.signalStrength ?: 0
-                        binding.toolbar.btnNetwork.imageTintList = ColorStateList.valueOf(Color.WHITE)
-
-                        if (isGatewayConnecting) {
-                            tvConnectingBlinkAnimator = ObjectAnimator.ofFloat(binding.tvConnecting, "alpha", 1f, 0f)
-                            tvConnectingBlinkAnimator?.duration = 500
-                            tvConnectingBlinkAnimator?.repeatMode = ValueAnimator.REVERSE
-                            tvConnectingBlinkAnimator?.repeatCount = ValueAnimator.INFINITE
-                            tvConnectingBlinkAnimator?.start()
-                        } else {
-                            tvConnectingBlinkAnimator?.cancel()
-                            binding.tvConnecting.alpha = 1f
-                        }
-                    }
-                }
-            }
-        }*/
+        vm.disarmedUnitFetchedData.observe(this@LauncherControlAct) {
+            vm.uiState.value?.let { state -> updateLeftTelemetryPanel(state) }
+        }
     }
 
     private fun connectGateway() {
@@ -322,9 +393,7 @@ class LauncherControlAct :
                 val fetchedChannelModel = FetchedChannelModel(response)
                 vm.setPressureInBar(fetchedChannelModel.getPressure())
                 vm.setFetchedUnitData(fetchedChannelModel)
-                if (!vm.fetchDataFromAutoupdate) {
-                    setStayArmed()
-                }
+                updateFieldBatteryUI() // GEÄNDERT: Akkubalken bei neuer Telemetrie direkt aktualisieren
             } else if (response?.startsWith("V", ignoreCase = true) == true) {
                 vm.setVoltageResponse(response)
                 setVoltage()
@@ -351,7 +420,7 @@ class LauncherControlAct :
                     cancelReloadBtnBlinkAnimator()
                     stopBlinkAnimation()
                     startUpdateBtnBlinkAnimation()
-                } else if (response == AppConstants.CommandResponse.GOT_IT) {
+                } else if (AppConstants.CommandResponse.isSuccess(response)) {
                     if (vm.uiState.value?.selectedUnit?.isReloadCommand(command) == true) {
                         cancelReloadBtnBlinkAnimator()
                         if (vm.uiState.value?.fetchedUnitModel == null) {
@@ -386,6 +455,10 @@ class LauncherControlAct :
 
             }
             in listOfFetchDataCommand -> {
+                val unitNumber = vm.uiState.value?.selectedUnit?.unitNumber
+                if (unitNumber != null && vm.uiState.value?.fetchedUnitModel == null) {
+                    vm.setFetchedUnitData(FetchedChannelModel("U $unitNumber"))
+                }
                 startUpdateBtnBlinkAnimation()
                 cancelReloadBtnBlinkAnimator()
             }
@@ -408,14 +481,97 @@ class LauncherControlAct :
             } else {
                 vm.setUnitDisarmed(false)
             }
+        } else {
+            // GEÄNDERT: Wenn alle Kanäle verschossen sind ("empty / please reload"), stößt ein Klick auf den großen Button direkt den Reload an
+            binding.btnReload.animateRotate()
+            reloadUnitData()
         }
     }
 
+    private var remainingDisarmSeconds = 0
+
     private fun setStayArmed() {
         stayArmedTimerJob?.cancel()
-        stayArmedTimerJob = lifecycleScope.launch(Dispatchers.IO) {
-            delay((prefs.armedInterval * 1000L))
-            withContext(Dispatchers.Main) { vm.setUnitDisarmed(true) }
+        remainingDisarmSeconds = prefs.armedInterval
+        stayArmedTimerJob = lifecycleScope.launch(Dispatchers.Main) {
+            while (remainingDisarmSeconds > 0 && vm.hasStayArmedActive()) {
+                binding.toolbar.textView.text = "DISARM IN ${remainingDisarmSeconds}s"
+                binding.toolbar.textView.setTextColor(
+                    if (remainingDisarmSeconds <= 5) Color.parseColor("#FFA500") else Color.WHITE
+                )
+                updateFieldBatteryUI()
+                delay(1000L)
+                remainingDisarmSeconds--
+            }
+            // GEÄNDERT: Disarm wird ausgeführt, wenn der Timer regulär abgelaufen ist
+            if (remainingDisarmSeconds <= 0 && vm.hasStayArmedActive()) {
+                resetTitleUI()
+                vm.setUnitDisarmed(true)
+            }
+        }
+    }
+
+    private fun resetTitleUI() {
+        stayArmedTimerJob?.cancel()
+        binding.toolbar.textView.setOnClickListener(null) // GEÄNDERT: Klick-Listener auf der normalen Startseite entfernen
+        binding.toolbar.textView.text = getString(R.string.launcher_control)
+        binding.toolbar.textView.setTextColor(Color.WHITE)
+    }
+
+    // GEÄNDERT: Steuert die 14 Segment-Kästchen dynamisch nach empfangener Akku-Hex-Stufe an
+    private fun updateFieldBatteryUI() {
+        val isUnitSelected = vm.uiState.value?.hasUnitSelected() == true
+
+        if (isUnitSelected) {
+            binding.llFieldBattery.isVisible = true
+            val fetchedModel = vm.uiState.value?.fetchedUnitModel ?: vm.disarmedUnitFetchedData.value
+            val batteryHex = fetchedModel?.getBatteryHex()
+
+            // GEÄNDERT: Wenn noch keine Telemetrie empfangen wurde, "--%" in Grau anzeigen
+            val (percentText, color, activeBars) = if (batteryHex != null) {
+                val (pct, col) = when (batteryHex) {
+                    15 -> Pair("100%", Color.GREEN)
+                    14 -> Pair("FAIL", Color.RED)
+                    13 -> Pair("100%", Color.GREEN)
+                    12 -> Pair("95%", Color.GREEN)
+                    11 -> Pair("85%", Color.GREEN)
+                    10 -> Pair("80%", Color.GREEN)
+                    9  -> Pair("75%", Color.GREEN)
+                    8  -> Pair("65%", Color.GREEN)
+                    7  -> Pair("60%", Color.GREEN)
+                    6  -> Pair("50%", Color.GREEN)
+                    5  -> Pair("40%", Color.GREEN)
+                    4  -> Pair("30%", Color.GREEN)
+                    3  -> Pair("20%", Color.YELLOW)
+                    2  -> Pair("10%", Color.YELLOW)
+                    1  -> Pair("3%", Color.RED)
+                    0  -> Pair("1%", Color.RED)
+                    else -> Pair("FAIL", Color.RED)
+                }
+                val bars = if (batteryHex in 0..13) batteryHex + 1 else if (batteryHex == 15) 14 else 0
+                Triple(pct, col, bars)
+            } else {
+                Triple("--%", Color.GRAY, 0)
+            }
+
+            val segments = listOf(
+                binding.seg0, binding.seg1, binding.seg2, binding.seg3,
+                binding.seg4, binding.seg5, binding.seg6, binding.seg7,
+                binding.seg8, binding.seg9, binding.seg10, binding.seg11,
+                binding.seg12, binding.seg13
+            )
+            segments.forEachIndexed { index, view ->
+                val isActive = index < activeBars
+                view.backgroundTintList = android.content.res.ColorStateList.valueOf(
+                    if (isActive) color else Color.parseColor("#808080")
+                )
+            }
+
+            binding.tvFieldBatLabel.setTextColor(color)
+            binding.tvFieldBatPercent.setTextColor(color)
+            binding.tvFieldBatPercent.text = " $percentText"
+        } else {
+            binding.llFieldBattery.isVisible = false
         }
     }
 
@@ -514,15 +670,59 @@ class LauncherControlAct :
         }
     }
 
+    private var batteryBlinkAnimator: ObjectAnimator? = null
+
     private fun setVoltage() {
-        binding.tvVoltage.text = "${vm.fetchedUnitVoltage}V"
-        vm.fetchedUnitVoltage?.toDoubleOrNull()?.let {
-            binding.ivVoltage.setImageResource(getVoltageImageResId(it) )
+        val voltageStr = vm.fetchedUnitVoltage
+        binding.tvVoltage.text = "${voltageStr}V"
+        val voltage = voltageStr?.toDoubleOrNull()
+
+        if (voltage != null) {
+            binding.ivVoltage.setImageResource(getVoltageImageResId(voltage))
+
+            // GEÄNDERT: Letzte Stufe (< 3.55 V) -> Orange, bei kritischem Tiefstand (< 3.40 V) -> Rot + Blinken
+            when {
+                voltage < 3.40 -> {
+                    binding.ivVoltage.imageTintList = android.content.res.ColorStateList.valueOf(Color.RED)
+                    binding.tvVoltage.setTextColor(Color.RED)
+                    startBatteryBlinkAnimation()
+                }
+                voltage < 3.55 -> {
+                    val orangeColor = getColor(R.color.colorOrange)
+                    binding.ivVoltage.imageTintList = android.content.res.ColorStateList.valueOf(orangeColor)
+                    binding.tvVoltage.setTextColor(orangeColor)
+                    stopBatteryBlinkAnimation()
+                }
+                else -> {
+                    binding.ivVoltage.imageTintList = android.content.res.ColorStateList.valueOf(Color.WHITE)
+                    binding.tvVoltage.setTextColor(Color.WHITE)
+                    stopBatteryBlinkAnimation()
+                }
+            }
         }
     }
 
+    private fun startBatteryBlinkAnimation() {
+        if (batteryBlinkAnimator == null || !batteryBlinkAnimator!!.isStarted) {
+            batteryBlinkAnimator = ObjectAnimator.ofFloat(binding.ivVoltage, "alpha", 1f, 0.2f, 1f).apply {
+                duration = 500
+                repeatCount = ObjectAnimator.INFINITE
+                repeatMode = ValueAnimator.RESTART
+                start()
+            }
+        }
+    }
+
+    private fun stopBatteryBlinkAnimation() {
+        batteryBlinkAnimator?.cancel()
+        batteryBlinkAnimator = null
+        binding.ivVoltage.alpha = 0.7f
+    }
+
     private fun setVoltageVisibility(iconVisible: Boolean = true) {
-        val isVoltageVisible = !vm.fetchedUnitVoltage.isNullOrBlank()
+        // GEÄNDERT: Sichtbarkeit an aktiven Gateway-Verbindungsstatus koppeln
+        val isConnected = vm.uiState.value?.isGatewayConnected() == true
+        val isVoltageVisible = isConnected && !vm.fetchedUnitVoltage.isNullOrBlank()
         binding.tvVoltage.isVisible = !iconVisible && isVoltageVisible
         vm.fetchedUnitVoltage?.toDoubleOrNull()?.let {
             binding.ivVoltage.isVisible = iconVisible && isVoltageVisible
@@ -539,9 +739,7 @@ class LauncherControlAct :
     }
 
     private fun fetchUnitData(unitModel: UnitModel?, autoupdate: Boolean = false) {
-        if (!autoupdate) {
-            vm.resetFetchedUnit()
-        }
+
         vm.fetchDataFromAutoupdate = autoupdate
         val haxCode = unitModel?.fetchDataHexCode() ?: return
         sendCommand(haxCode)
@@ -550,6 +748,8 @@ class LauncherControlAct :
     private fun reloadUnitData() {
         if (vm.uiState.value?.selectedUnit == null) return
         vm.currentFiredChannel = null
+        vm.fetchDataFromAutoupdate = false
+        vm.setUnitDisarmed(false)
         val haxCode = vm.uiState.value?.selectedUnit?.reloadHexCode() ?: return
         sendCommand(haxCode)
     }
@@ -709,32 +909,49 @@ class LauncherControlAct :
     }
 
     private fun handleUnitClick(unitNo: Int, unitModel: UnitModel?) {
-        if (prefs.advancedControlIsStandardEnable) {
+        if (vm.uiState.value?.hasUnitSelected() == true) {
+            selectUnit(unitNo, unitModel)
+        } else if (prefs.advancedControlIsStandardEnable) {
             resetSelectUnit()
             val bundle =
                 bundleOf(AppConstants.Communication.BundleData.INTENT_UNIT_MODEL to unitModel)
-            startActivity(ChannelListAct::class.java, bundle = bundle)
+            startActivityForResult(ChannelListAct::class.java, channelListActResultLauncher, bundle = bundle)
         } else {
             selectUnit(unitNo, unitModel)
         }
     }
 
     private fun handleLongUnitClick(unitNo: Int, unitModel: UnitModel?) {
-        if (prefs.advancedControlIsStandardEnable) {
+        if (vm.uiState.value?.hasUnitSelected() == true) {
+            resetSelectUnit()
+            val bundle =
+                bundleOf(AppConstants.Communication.BundleData.INTENT_UNIT_MODEL to unitModel)
+            startActivityForResult(ChannelListAct::class.java, channelListActResultLauncher, bundle = bundle)
+        } else if (prefs.advancedControlIsStandardEnable) {
             selectUnit(unitNo, unitModel)
         } else {
             resetSelectUnit()
             val bundle =
                 bundleOf(AppConstants.Communication.BundleData.INTENT_UNIT_MODEL to unitModel)
-            startActivity(ChannelListAct::class.java, bundle = bundle)
+            startActivityForResult(ChannelListAct::class.java, channelListActResultLauncher, bundle = bundle)
         }
     }
 
     private fun selectUnit(unitNo: Int, unitModel: UnitModel?) {
-        if (vm.uiState.value?.isThisUnitSelected(unitNo) == true && vm.uiState.value?.getNextAvailableChannel() != null) {
-            vm.setUnitDisarmed(true)
-        } else if (vm.uiState.value?.isThisUnitSelected(unitNo) == true) {
-            resetSelectUnit()
+        if (vm.uiState.value?.isThisUnitSelected(unitNo) == true) {
+            val state = vm.uiState.value
+            if (state?.isNoResponse() == true) {
+                // Unit ist offline: Erneuter Abfrageversuch
+                fetchUnitData(unitModel)
+            } else if (vm.hasStayArmedActive()) {
+                // Unit ist Scharf -> Entschärfen (Text "DISARMED UNIT X..." erscheint & Button wird weiß)
+                resetTitleUI()
+                vm.setUnitDisarmed(true)
+            } else {
+                // Unit ist Entschärft -> wieder Scharfschalten (Button wird rot)
+                vm.setUnitDisarmed(false)
+                setStayArmed()
+            }
         } else {
             vm.setSelectedUnit(unitModel)
             fetchUnitData(unitModel)
@@ -744,23 +961,35 @@ class LauncherControlAct :
     private fun resetSelectUnit() {
         vm.setSelectedUnit(null)
         vm.setFetchedUnitData(null)
+        resetTitleUI() // GEÄNDERT: Titel & Akkubalken beim Abwählen zurücksetzen
+        binding.llFieldBattery.isVisible = false // GEÄNDERT: Wird nur hier beim kompletten Abwählen ausgeblendet
+        binding.btnReloadContainer.backgroundTintList = android.content.res.ColorStateList.valueOf(getColor(R.color.colorSkyBlue))
+        binding.btnUpdateContainer.backgroundTintList = android.content.res.ColorStateList.valueOf(getColor(R.color.colorOrange))
+        stopFailBlinkAnimation()
     }
-
-    /*private fun setLauncherButtonImage(isConnected: Boolean) {
-        if (isConnected) {
-            binding.ivLauncher.setImageResource(Drawables.ic_red_freesbi)
-        } else {
-            if (vm.selectedUnitModel.value?.isOnlySoundInstalled() == true) {
-                binding.ivLauncher.setImageResource(Drawables.ic_green_freesbi_with_speaker)
-            } else {
-                binding.ivLauncher.setImageResource(Drawables.ic_green_freesbi)
-            }
-        }
-    }*/
 
     private val settingActResultLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result: ActivityResult ->
         vm.reloadState()
         connectGateway()
+        vm.setSelectedUnit(null)
+    }
+
+    // GEÄNDERT: Empfängt die in der Advanced View gewählte Unit und wählt diese in der Simple View aus
+    private val channelListActResultLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result: ActivityResult ->
+        if (result.resultCode == RESULT_OK) {
+            val intent = result.data
+            val unitModel = if (intent != null) {
+                androidx.core.content.IntentCompat.getSerializableExtra(
+                    intent,
+                    AppConstants.Communication.BundleData.INTENT_UNIT_MODEL,
+                    UnitModel::class.java
+                )
+            } else null
+
+            if (unitModel != null) {
+                selectUnit(unitModel.unitNumber, unitModel)
+            }
+        }
     }
 
     override fun onClick(v: View) {
@@ -779,20 +1008,32 @@ class LauncherControlAct :
                                 fireSelectedChannel()
                             }
                         } else {
-                            showGatewayInfo()
+                            // NEU: Wenn keine Unit gewählt ist, trennt ein einfacher Klick die Verbindung (Disconnect)
+                            bluetoothService?.disconnectBluetoothDevice()
+                            setGatewayDisconnected()
                         }
                     }
                     else -> {
-
                     }
                 }
             }
 
-            R.id.iv_voltage -> {
+            R.id.iv_voltage, R.id.tv_voltage -> {
                 lifecycleScope.launch {
                     setVoltageVisibility(false)
                     delay(2000)
                     setVoltageVisibility(true)
+                }
+            }
+
+            R.id.btn_back -> {
+                resetSelectUnit() // GEÄNDERT: Klick auf den Zurück-Pfeil hebt die Unit-Auswahl auf und geht zur Startseite
+            }
+
+            // GEÄNDERT: Tap auf den Titel "DISARM IN XXs" setzt den Countdown sauber auf die volle Zeit zurück
+            R.id.textView -> {
+                if (vm.uiState.value?.hasUnitSelected() == true && vm.hasStayArmedActive()) {
+                    setStayArmed()
                 }
             }
 
@@ -863,6 +1104,14 @@ class LauncherControlAct :
             R.id.btn_sound_magpie -> {
                 selectSound(5)
             }
+
+            R.id.btn_program_settings -> {
+                showToast("Program Settings")
+            }
+
+            R.id.btn_start_program -> {
+                showToast("Start Program")
+            }
         }
     }
 
@@ -879,10 +1128,14 @@ class LauncherControlAct :
     private fun setGatewayDisconnected() {
         stopGatewaySignalStrengthUpdate()
         vm.setGatewayDisconnected()
+        // GEÄNDERT: Batterie-Icon & Spannungstext bei getrenntem Gateway ausblenden
+        binding.ivVoltage.isVisible = false
+        binding.tvVoltage.isVisible = false
     }
 
     override fun onPause() {
         super.onPause()
+        resetTitleUI() // GEÄNDERT: Stoppt laufenden Disarm-Timer beim Wechsel in andere Ansichten
         stopBlinkAnimation()
     }
 
@@ -895,5 +1148,10 @@ class LauncherControlAct :
          */
         val unitNumber = vm.uiState.value?.selectedUnit?.unitNumber ?: -1
         vm.setSelectedUnit(vm.getUnitModel(unitNumber))
+
+        if (vm.uiState.value?.hasUnitSelected() == true) {
+            vm.setUnitDisarmed(false)
+            setStayArmed()
+        }
     }
 }

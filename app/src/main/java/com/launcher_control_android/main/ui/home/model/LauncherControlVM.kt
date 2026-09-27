@@ -65,23 +65,46 @@ class LauncherControlVM @Inject constructor(val prefs: PrefUtil) : BaseVM() {
     }
 
     fun setSelectedUnit(unitModel: UnitModel?) {
-        uiState.value = uiState.value?.copy(selectedUnit = unitModel)
+        disarmedUnitFetchedData.value = null
+        uiState.value = uiState.value?.copy(
+            selectedUnit = unitModel,
+            fetchedUnitModel = null,
+            isDisarmed = false
+        )
     }
 
     fun setFetchedUnitData(fetchedUnitData: FetchedChannelModel?) {
-        uiState.value = uiState.value?.copy(fetchedUnitModel = fetchedUnitData)
-        disarmedUnitFetchedData.postValue(null)
+        val isCurrentlyDisarmed = uiState.value?.isDisarmed == true || disarmedUnitFetchedData.value != null
+        if (isCurrentlyDisarmed && fetchedUnitData != null) {
+            disarmedUnitFetchedData.value = fetchedUnitData
+            uiState.value = uiState.value?.copy(
+                fetchedUnitModel = fetchedUnitData,
+                isDisarmed = true
+            )
+        } else {
+            disarmedUnitFetchedData.value = null
+            uiState.value = uiState.value?.copy(
+                fetchedUnitModel = fetchedUnitData,
+                isDisarmed = false
+            )
+        }
     }
 
     fun setUnitDisarmed(isDisarmed: Boolean) {
         if (isDisarmed) {
-            if (uiState.value?.getNextAvailableChannel() != null && !isDisarmPause) {
-                disarmedUnitFetchedData.postValue(uiState.value?.fetchedUnitModel)
-                uiState.value = uiState.value?.copy(fetchedUnitModel = null)
-            }
+            val currentData = uiState.value?.fetchedUnitModel ?: disarmedUnitFetchedData.value
+            disarmedUnitFetchedData.value = currentData
+            uiState.value = uiState.value?.copy(
+                fetchedUnitModel = currentData,
+                isDisarmed = true
+            )
         } else {
-            disarmedUnitFetchedData.postValue(null)
-            uiState.value = uiState.value?.copy(fetchedUnitModel = disarmedUnitFetchedData.value)
+            val restoredData = disarmedUnitFetchedData.value ?: uiState.value?.fetchedUnitModel
+            disarmedUnitFetchedData.value = null
+            uiState.value = uiState.value?.copy(
+                fetchedUnitModel = restoredData,
+                isDisarmed = false
+            )
         }
     }
 

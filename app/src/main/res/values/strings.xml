@@ -30,7 +30,7 @@
     <string name="please_on_bluetooth_to_use_this_features">Please on bluetooth to use this features</string>
     <string name="please_allow_bluetooth_permission_to_use_this_features">Please allow bluetooth permission to use this features</string>
     <string name="main_configuration">Main Configuration</string>
-    <string name="device_settings">Device Settings</string>
+    <string name="device_settings">Device and APP Settings</string>
     <string name="sound_option_installed">Sound option installed</string>
     <string name="servo_version">Servo version</string>
     <string name="unit_no_colon">Unit %d:</string>
@@ -128,8 +128,8 @@
     <string name="play">Play</string>
     <string name="min">Min.</string>
     <string name="max">Max.</string>
-    <string name="update_pressure_manual">Update Pressure: Manual</string>
-    <string name="update_pressure_auto">Update Pressure: Auto</string>
-    <string name="unit_x_servo_control">Unit %d - SERVO CONTROL</string>
+    <string name="update_pressure_manual">Update Pressure\nMANUAL</string>
+    <string name="update_pressure_auto">Update Pressure\nAUTO</string>
+    <string name="unit_x_servo_control">Unit %d\nSERVO CONTROL</string>
     <string name="update_unit_x">Update Unit %d</string>
 </resources>

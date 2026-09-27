@@ -27,6 +27,7 @@
         <include
             android:id="@+id/toolbar"
             layout="@layout/lay_toolbar"
+            app:click="@{click}"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"

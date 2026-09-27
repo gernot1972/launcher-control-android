@@ -57,6 +57,33 @@ class ChannelListActVM @Inject constructor(private val prefs: PrefUtil) : BaseVM
         } else "Update"
     }
 
+    fun getBatteryPercentText(): String {
+        val hex = fetchedUnitModel?.getBatteryHex() ?: 14
+        return when (hex) {
+            15 -> "100%"
+            14 -> "FAIL"
+            13 -> "100%"
+            12 -> "95%"
+            11 -> "85%"
+            10 -> "80%"
+            9  -> "75%"
+            8  -> "65%"
+            7  -> "60%"
+            6  -> "50%"
+            5  -> "40%"
+            4  -> "30%"
+            3  -> "20%"
+            2  -> "10%"
+            1  -> "3%"
+            0  -> "1%"
+            else -> "FAIL"
+        }
+    }
+
+    fun isCompressorActive(): Boolean {
+        return fetchedUnitModel?.isCompressorActive() == true
+    }
+
     fun setSoundForSelectedUnit(index: Int) {
         selectedUnitModel.value?.selectedSound = index
         when (selectedUnitModel.value?.unitNumber) {
