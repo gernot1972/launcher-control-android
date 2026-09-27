@@ -1,9 +1,6 @@
 package com.launcher_control_android.main.base
 
-import android.app.ActivityManager
-import android.content.Context
 import android.content.Intent
-import android.content.pm.ActivityInfo
 import android.graphics.Insets
 import android.os.Build
 import android.os.Bundle
@@ -32,17 +29,15 @@ import com.launcher_control_android.AppConstants.Api.ResponseCode.UNAUTHORIZED_C
 import com.launcher_control_android.AppConstants.Communication.BundleData.IS_UNAUTHORISED
 import com.launcher_control_android.BR
 import com.launcher_control_android.R
-import com.launcher_control_android.Strings
 import com.launcher_control_android.main.ui.unit_detail.view.UnitDetailAct
 import com.launcher_control_android.helper.util.*
 import com.launcher_control_android.main.base.BaseRepo.ApiResultType.CANCELLED
 import com.launcher_control_android.main.common.ApiRenderState
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 abstract class BaseAct<binding : ViewDataBinding, VM : BaseVM>(
-    @LayoutRes private val layoutId: Int
+    @param:LayoutRes private val layoutId: Int
 ) : AppCompatActivity(), View.OnClickListener {
 
     @Inject
@@ -63,29 +58,29 @@ abstract class BaseAct<binding : ViewDataBinding, VM : BaseVM>(
         }*/
         super.onCreate(savedInstanceState)
         AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
-        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+
 
         binding = DataBindingUtil.setContentView<binding>(this, layoutId).apply {
             lifecycleOwner = this@BaseAct
 
-            vm?.let {
-                setVariable(BR.vm, it)
+            vm?.let { vm ->
+                setVariable(BR.vm, vm)
 
                 lifecycleScope.launch {
-                    it.state().collect {
-                        renderState(it)
+                    vm.state().collect { state ->
+                        renderState(state)
                     }
                 }
 
                 lifecycleScope.launch {
-                    it.apiError.collect {
-                        if (it.resCode == UNAUTHORIZED_CODE)
+                    vm.apiError.collect { apiError ->
+                        if (apiError.resCode == UNAUTHORIZED_CODE)
                             logout(true)
                         else
-                            if (it.resultType != CANCELLED) {
+                            if (apiError.resultType != CANCELLED) {
                                 hideProgress()
-                                it.error?.let {
-                                    this@BaseAct.showToast(it)
+                                apiError.error?.let { msg ->
+                                    this@BaseAct.showToast(msg)
                                 }
                             }
                     }
@@ -209,42 +204,9 @@ abstract class BaseAct<binding : ViewDataBinding, VM : BaseVM>(
         progress?.set(false)
     }
 
-    fun popFrag() {
-        supportFragmentManager.popBackStack()
-    }
-
     fun finishAct() {
         currentFocus?.hideSoftKeyboard()
         finish()
-    }
-
-    fun delayedExecutor(millis: Long, executable: () -> Unit) {
-        lifecycleScope.launch {
-            delay(millis)
-            executable.invoke()
-        }
-    }
-
-    fun onContainerBackPressed() {
-        if (supportFragmentManager.backStackEntryCount > 0)
-            popFrag()
-        else
-            finishAct()
-    }
-
-    private fun isApplicationInBackground(): Boolean {
-//        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.M) {
-        val runningTasks =
-            (getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager).getRunningTasks(1)
-        if (runningTasks.isNotEmpty())
-            return runningTasks[0].topActivity?.packageName != packageName
-        return false
-//        } else {
-//            val runningTasks = (getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager).appTasks
-//            if (runningTasks.isNotEmpty())
-//                return runningTasks[0].taskInfo.topActivity.packageName != packageName
-//            return false
-//        }
     }
 
     override fun onClick(v: View) {
