@@ -88,8 +88,8 @@ data class LauncherControlUIStateModel(
     fun leftStatusText(fetchedModel: FetchedChannelModel? = fetchedUnitModel): String {
         return when {
             fetchedModel?.isBarFail() == true -> "FAIL"
-            isUnitServoON(fetchedModel) -> "SERVO\nOK"
-            isSoundOnlyMode() -> "SOUND\nOK"
+            isUnitServoON(fetchedModel) -> "SERVO OK"
+            isSoundOnlyMode() -> "SOUND OK"
             isCompressorLocked(fetchedModel) -> "LOCK"
             isCompressorActive(fetchedModel) -> "ON"
             else -> "OFF"

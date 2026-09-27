@@ -18,6 +18,7 @@ import javax.inject.Inject
 class LauncherControlVM @Inject constructor(val prefs: PrefUtil) : BaseVM() {
 
     val uiState: MutableLiveData<LauncherControlUIStateModel> = MutableLiveData<LauncherControlUIStateModel>()
+    val toolbarTitle = MutableLiveData<String>("Launcher Control")
 
     init {
         reloadState()
@@ -154,29 +155,16 @@ class LauncherControlVM @Inject constructor(val prefs: PrefUtil) : BaseVM() {
     }
 
     fun setSoundForSelectedUnit(index: Int) {
-        uiState.value?.selectedUnit?.selectedSound = index
-        when (uiState.value?.selectedUnit?.unitNumber) {
-            1 -> {
-                val unit1 = prefs.unit1Model
-                unit1.selectedSound = index
-                prefs.unit1Model = unit1
-            }
-            2 -> {
-                val unit2 = prefs.unit2Model
-                unit2.selectedSound = index
-                prefs.unit2Model = unit2
-            }
-            3 -> {
-                val unit3 = prefs.unit3Model
-                unit3.selectedSound = index
-                prefs.unit3Model = unit3
-            }
-            4 -> {
-                val unit4 = prefs.unit4Model
-                unit4.selectedSound = index
-                prefs.unit4Model = unit4
-            }
+        val currentUnit = uiState.value?.selectedUnit ?: return
+        currentUnit.selectedSound = index
+        when (currentUnit.unitNumber) {
+            1 -> { val unit1 = prefs.unit1Model; unit1.selectedSound = index; prefs.unit1Model = unit1 }
+            2 -> { val unit2 = prefs.unit2Model; unit2.selectedSound = index; prefs.unit2Model = unit2 }
+            3 -> { val unit3 = prefs.unit3Model; unit3.selectedSound = index; prefs.unit3Model = unit3 }
+            4 -> { val unit4 = prefs.unit4Model; unit4.selectedSound = index; prefs.unit4Model = unit4 }
         }
+        // 🎯 Erzeugt sofort ein neues UIState-Event für das DataBinding
+        uiState.value = uiState.value?.copy(selectedUnit = currentUnit)
     }
 
     fun setPressureForSelectedUnit(index: Int) {
@@ -202,6 +190,15 @@ class LauncherControlVM @Inject constructor(val prefs: PrefUtil) : BaseVM() {
                 unit4.selectedPressure = index
                 prefs.unit4Model = unit4
             }
+        }
+    }
+
+    fun updateUnitPref(unit: UnitModel, which: Int) {
+        when (which) {
+            1 -> prefs.unit1Model = unit
+            2 -> prefs.unit2Model = unit
+            3 -> prefs.unit3Model = unit
+            4 -> prefs.unit4Model = unit
         }
     }
 

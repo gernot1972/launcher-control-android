@@ -7,8 +7,7 @@ fun String.hexDecodedData(): ByteArray {
     if (!this.isHexadecimal()) {
         throw ConversionError.IncorrectInputFormat()
     }
-
-    val data = ByteArray(this.length / 2)
+    val data = ByteArray((this.length + 1) / 2) // 🎯 Korrektur: Erlaubt auch 1-stellige Hex-Befehle ("1".."6", "a".."f")
     val regex = Regex("[0-9a-fA-F]{1,2}")
     var dataIndex = 0
 

@@ -8,7 +8,8 @@ data class UnitModel(
     var isSoundOptionInstalled: Boolean,
     var isServoVersion: Boolean,
     var selectedSound: Int,
-    var selectedPressure: Int
+    var selectedPressure: Int,
+    var volumeStep: Int = 4 // 1 = 15% (Leise), 2 = 30% (Mittel), 3 = 50% (Laut), 4 = 100% (Voll)
 ): Serializable {
     fun testHexCode(): String? {
         return when (unitNumber) {
@@ -59,21 +60,37 @@ data class UnitModel(
         return "$unit$channelHex"
     }
 
-    fun soundHexCode(soundIndex: Int? = null): String? {
-        return if (soundIndex != null) {
-            when(unitNumber) {
-                1 -> "A${soundIndex + 1}"
-                2 -> "B${soundIndex + 1}"
-                3 -> "C${soundIndex + 1}"
-                4 -> "D${soundIndex + 1}"
+    fun soundHexCode(soundIndex: Int? = null, volumeStep: Int = 4): String? {
+        val sound = (soundIndex ?: selectedSound) + 1
+        val validSound = sound.coerceIn(1, 6)
+
+        return when (volumeStep) {
+            1 -> when (unitNumber) { // 🎯 15% (Leise)
+                1 -> validSound.toString(16)
+                2 -> (9 + validSound).toString(16)
+                3 -> "7" + validSound.toString(16)
+                4 -> "7" + (9 + validSound).toString(16)
                 else -> null
             }
-        } else {
-            when(unitNumber) {
-                1 -> "A${selectedSound + 1}"
-                2 -> "B${selectedSound + 1}"
-                3 -> "C${selectedSound + 1}"
-                4 -> "D${selectedSound + 1}"
+            2 -> when (unitNumber) { // 🎯 30% (Mittel)
+                1 -> "5" + validSound.toString(16)
+                2 -> "5" + (9 + validSound).toString(16)
+                3 -> "8" + validSound.toString(16)
+                4 -> "8" + (9 + validSound).toString(16)
+                else -> null
+            }
+            3 -> when (unitNumber) { // 🎯 50% (Laut)
+                1 -> "6" + validSound.toString(16)
+                2 -> "6" + (9 + validSound).toString(16)
+                3 -> "9" + validSound.toString(16)
+                4 -> "9" + (9 + validSound).toString(16)
+                else -> null
+            }
+            else -> when (unitNumber) { // 🎯 100% (Original)
+                1 -> "A$validSound"
+                2 -> "B$validSound"
+                3 -> "C$validSound"
+                4 -> "D$validSound"
                 else -> null
             }
         }
